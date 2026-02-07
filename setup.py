@@ -4,12 +4,12 @@ from setuptools_rust import Binding, RustExtension  # type: ignore
 setup(
     rust_extensions=[
         RustExtension(
-            "rust_chess",
+            "spooky_chess",
             binding=Binding.PyO3,
             debug=False,
             features=["python"],
         )
     ],
-    data_files=[("", ["rust_chess.pyi"])],
+    data_files=[("", ["spooky_chess.pyi"])],
     zip_safe=False,
 )

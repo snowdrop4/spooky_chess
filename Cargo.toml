@@ -1,10 +1,10 @@
 [package]
-name = "rust-chess"
+name = "spooky_chess"
 version = "0.2.14"
 edition = "2021"
 
 [lib]
-name = "rust_chess"
+name = "spooky_chess"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

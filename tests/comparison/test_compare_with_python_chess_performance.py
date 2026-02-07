@@ -2,16 +2,16 @@ import time
 
 import chess
 
-import rust_chess
+import spooky_chess
 
 
 def test_move_generation_speed() -> None:
     iterations = 1000
 
-    # Time rust-chess
+    # Time spooky_chess
     rust_start = time.time()
     for _ in range(iterations):
-        game = rust_chess.Game.standard()
+        game = spooky_chess.Game.standard()
         moves = game.legal_moves()
         assert len(moves) == 20
     rust_time = time.time() - rust_start
@@ -25,7 +25,7 @@ def test_move_generation_speed() -> None:
     python_time = time.time() - python_start
 
     print(f"\nMove generation ({iterations} iterations):")
-    print(f"  rust-chess: {rust_time:.4f}s")
+    print(f"  spooky_chess: {rust_time:.4f}s")
     print(f"  python-chess: {python_time:.4f}s")
     print(f"  Speedup: {python_time / rust_time:.2f}x")
 
@@ -34,10 +34,10 @@ def test_fen_parsing_speed() -> None:
     iterations = 1000
     test_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
-    # Time rust-chess
+    # Time spooky_chess
     rust_start = time.time()
     for _ in range(iterations):
-        rust_chess.Game(width=8, height=8, fen=test_fen, castling_enabled=True)
+        spooky_chess.Game(width=8, height=8, fen=test_fen, castling_enabled=True)
     rust_time = time.time() - rust_start
 
     # Time python-chess
@@ -48,7 +48,7 @@ def test_fen_parsing_speed() -> None:
     python_time = time.time() - python_start
 
     print(f"\nFEN parsing ({iterations} iterations):")
-    print(f"  rust-chess: {rust_time:.4f}s")
+    print(f"  spooky_chess: {rust_time:.4f}s")
     print(f"  python-chess: {python_time:.4f}s")
     print(f"  Speedup: {python_time / rust_time:.2f}x")
 
@@ -56,11 +56,11 @@ def test_fen_parsing_speed() -> None:
 def test_move_making_speed() -> None:
     iterations = 1000
 
-    # Time rust-chess
+    # Time spooky_chess
     rust_start = time.time()
     for _ in range(iterations):
-        game = rust_chess.Game.standard()
-        move = rust_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
+        game = spooky_chess.Game.standard()
+        move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
         game.make_move(move)
         game.unmake_move()
     rust_time = time.time() - rust_start
@@ -75,14 +75,14 @@ def test_move_making_speed() -> None:
     python_time = time.time() - python_start
 
     print(f"\nMove making/unmaking ({iterations} iterations):")
-    print(f"  rust-chess: {rust_time:.4f}s")
+    print(f"  spooky_chess: {rust_time:.4f}s")
     print(f"  python-chess: {python_time:.4f}s")
     print(f"  Speedup: {python_time / rust_time:.2f}x")
 
 
 def test_game_simulation_speed() -> None:
     def simulate_game_rust(moves_count: int) -> int:
-        rust_game = rust_chess.Game.standard()
+        rust_game = spooky_chess.Game.standard()
         moves_made = 0
 
         while moves_made < moves_count and not rust_game.is_over():
@@ -112,7 +112,7 @@ def test_game_simulation_speed() -> None:
     iterations = 100
     moves_count = 20
 
-    # Time rust-chess
+    # Time spooky_chess
     rust_start = time.time()
     for _ in range(iterations):
         simulate_game_rust(moves_count=moves_count)
@@ -125,6 +125,6 @@ def test_game_simulation_speed() -> None:
     python_time = time.time() - python_start
 
     print(f"\nGame simulation ({iterations} games, 20 moves each):")
-    print(f"  rust-chess: {rust_time:.4f}s")
+    print(f"  spooky_chess: {rust_time:.4f}s")
     print(f"  python-chess: {python_time:.4f}s")
     print(f"  Speedup: {python_time / rust_time:.2f}x")

@@ -21,7 +21,7 @@ use pyo3::types::PyType;
 
 #[cfg(feature = "python")]
 #[pymodule(gil_used = false)]
-fn rust_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use color::Color;
     use python_bindings::*;
     m.add_class::<PyBoard>()?;

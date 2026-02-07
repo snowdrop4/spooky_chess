@@ -1,10 +1,10 @@
 import chess
 
-import rust_chess
+import spooky_chess
 
 
 def test_initial_position_fen() -> None:
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
     rust_fen = rust_game.to_fen()
@@ -22,10 +22,10 @@ def test_fen_parsing_comparison() -> None:
     ]
 
     for fen in test_fens:
-        rust_game = rust_chess.Game.standard()
+        rust_game = spooky_chess.Game.standard()
         python_board = chess.Board()
 
-        rust_game = rust_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
+        rust_game = spooky_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
         python_board.set_fen(fen)
 
         # Compare resulting FEN
@@ -42,13 +42,13 @@ def test_fen_parsing_comparison() -> None:
 
 
 def test_move_making_and_unmaking() -> None:
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
     initial_fen = rust_game.to_fen()
 
     # Make a move in both
-    rust_move = rust_chess.Move.from_rowcol(4, 1, 4, 3)  # e2e4
+    rust_move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)  # e2e4
     python_move = chess.Move.from_uci("e2e4")
 
     assert rust_game.make_move(rust_move), f"Move {rust_move} should be legal"
@@ -67,7 +67,7 @@ def test_move_making_and_unmaking() -> None:
 
 
 def test_move_sequence_compatibility() -> None:
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
     # Italian Game opening
@@ -82,7 +82,7 @@ def test_move_sequence_compatibility() -> None:
         # Compare turn
         rust_turn = rust_game.turn()
         python_turn = python_board.turn
-        expected_rust_turn = rust_chess.WHITE if python_turn else rust_chess.BLACK
+        expected_rust_turn = spooky_chess.WHITE if python_turn else spooky_chess.BLACK
         assert rust_turn == expected_rust_turn
 
         # Compare move counts
@@ -101,7 +101,7 @@ def test_move_sequence_compatibility() -> None:
         dst_col = ord(move_uci[2]) - ord("a")
         dst_row = int(move_uci[3]) - 1
 
-        rust_move = rust_chess.Move.from_rowcol(src_col, src_row, dst_col, dst_row)
+        rust_move = spooky_chess.Move.from_rowcol(src_col, src_row, dst_col, dst_row)
         python_move = chess.Move.from_uci(move_uci)
 
         # Make moves
@@ -116,10 +116,10 @@ def test_castling_compatibility() -> None:
     # Set up position where castling is possible
     castling_fen = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"
 
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
-    rust_game = rust_chess.Game(width=8, height=8, fen=castling_fen, castling_enabled=True)
+    rust_game = spooky_chess.Game(width=8, height=8, fen=castling_fen, castling_enabled=True)
     python_board.set_fen(castling_fen)
 
     # Both should have castling moves available
@@ -140,10 +140,10 @@ def test_en_passant_compatibility() -> None:
     # Set up position with en passant possible
     en_passant_fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"
 
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
-    rust_game = rust_chess.Game(width=8, height=8, fen=en_passant_fen, castling_enabled=True)
+    rust_game = spooky_chess.Game(width=8, height=8, fen=en_passant_fen, castling_enabled=True)
     python_board.set_fen(en_passant_fen)
 
     # FEN should match exactly (including en passant square)
@@ -164,10 +164,10 @@ def test_check_detection_compatibility() -> None:
     ]
 
     for fen in check_positions:
-        rust_game = rust_chess.Game.standard()
+        rust_game = spooky_chess.Game.standard()
         python_board = chess.Board()
 
-        rust_game = rust_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
+        rust_game = spooky_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
         python_board.set_fen(fen)
 
         # Check detection should match exactly
@@ -177,13 +177,13 @@ def test_check_detection_compatibility() -> None:
 
 
 def test_move_make_unmake_compatibility() -> None:
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
     original_fen = rust_game.to_fen()
 
     # Make same move in both
-    rust_move = rust_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
+    rust_move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
     python_move = chess.Move.from_uci("e2e4")
 
     assert rust_game.make_move(rust_move) is True, f"Move {rust_move} should be legal"
@@ -205,10 +205,10 @@ def test_50_move_rule_compatibility() -> None:
     # Position close to 50-move rule
     fifty_move_fen = "8/8/8/8/8/8/k1K5/8 w - - 98 150"
 
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
-    rust_game = rust_chess.Game(width=8, height=8, fen=fifty_move_fen, castling_enabled=True)
+    rust_game = spooky_chess.Game(width=8, height=8, fen=fifty_move_fen, castling_enabled=True)
     python_board.set_fen(fifty_move_fen)
 
     # Both should parse the halfmove clock correctly

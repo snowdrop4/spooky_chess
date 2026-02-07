@@ -4,10 +4,10 @@ import time
 
 import chess
 
-import rust_chess
+import spooky_chess
 
 
-def _compare_game_states(rust_game: rust_chess.Game, python_board: chess.Board, move_history: list[str]) -> None:
+def _compare_game_states(rust_game: spooky_chess.Game, python_board: chess.Board, move_history: list[str]) -> None:
     # Compare FEN
     rust_fen = rust_game.to_fen()
     python_fen = python_board.fen()
@@ -44,7 +44,7 @@ def _compare_game_states(rust_game: rust_chess.Game, python_board: chess.Board, 
     # Compare turn
     rust_turn = rust_game.turn()
     python_turn = python_board.turn
-    expected_rust_turn = rust_chess.WHITE if python_turn else rust_chess.BLACK
+    expected_rust_turn = spooky_chess.WHITE if python_turn else spooky_chess.BLACK
     assert rust_turn == expected_rust_turn, (
         f"Turn mismatch after moves {move_history}\nRust: {rust_turn}, Expected: {expected_rust_turn}"
     )
@@ -76,7 +76,7 @@ def _play_random_game(max_moves: int = 200, seed: int | None = None) -> tuple[in
     if seed is not None:
         random.seed(seed)
 
-    rust_game = rust_chess.Game.standard()
+    rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
     move_history = []
     moves_played = 0
@@ -135,7 +135,7 @@ def _run_fuzz_batch(num_games: int, start_seed: int) -> dict:
             max_moves = max(max_moves, moves_played)
 
             # Check end condition
-            rust_game = rust_chess.Game.standard()
+            rust_game = spooky_chess.Game.standard()
             for move_uci in move_history:
                 python_move = chess.Move.from_uci(move_uci)
                 rust_move = rust_game.move_from_lan(python_move.uci())
@@ -313,7 +313,7 @@ def test_specific_move_sequences() -> None:
     ]  # fmt: skip
 
     for sequence in test_sequences:
-        rust_game = rust_chess.Game.standard()
+        rust_game = spooky_chess.Game.standard()
         python_board = chess.Board()
 
         for move_uci in sequence:
@@ -340,9 +340,9 @@ def test_edge_case_positions() -> None:
     ]
 
     for fen in edge_case_fens:
-        rust_game = rust_chess.Game.standard()
+        rust_game = spooky_chess.Game.standard()
         python_board = chess.Board(fen)
-        rust_game = rust_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
+        rust_game = spooky_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
 
         # Play a few random moves from this position
         move_history = []

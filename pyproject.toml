@@ -3,7 +3,7 @@ requires = ["setuptools>=61", "setuptools-rust"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rust-chess"
+name = "spooky_chess"
 version = "0.2.14"
 description = "High-performance chess library with arbitrary board sizes"
 readme = "README.md"

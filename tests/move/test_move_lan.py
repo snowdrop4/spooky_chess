@@ -1,4 +1,4 @@
-import rust_chess
+import spooky_chess
 
 
 def test_move_to_lan() -> None:
@@ -10,7 +10,7 @@ def test_move_to_lan() -> None:
     ]
 
     for (src_col, src_row), (dst_col, dst_row), lan in test_cases:
-        move = rust_chess.Move.from_rowcol(src_col, src_row, dst_col, dst_row)
+        move = spooky_chess.Move.from_rowcol(src_col, src_row, dst_col, dst_row)
         assert move.to_lan() == lan
 
 
@@ -23,7 +23,7 @@ def test_move_from_lan() -> None:
     ]
 
     for (src_col, src_row), (dst_col, dst_row), lan in test_cases:
-        move = rust_chess.Move.from_lan(lan, 8, 8)
+        move = spooky_chess.Move.from_lan(lan, 8, 8)
 
         actual_src_col, actual_src_row = move.src_square()
         actual_dst_col, actual_dst_row = move.dst_square()

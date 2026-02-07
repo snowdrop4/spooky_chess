@@ -238,21 +238,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-chess"
-version = "0.2.14"
-dependencies = [
- "arrayvec",
- "bincode",
- "bitflags",
- "lazy_static",
- "num_cpus",
- "pyo3",
- "rand",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "ryu"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -299,6 +284,21 @@ dependencies = [
  "ryu",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "spooky_chess"
+version = "0.2.14"
+dependencies = [
+ "arrayvec",
+ "bincode",
+ "bitflags",
+ "lazy_static",
+ "num_cpus",
+ "pyo3",
+ "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

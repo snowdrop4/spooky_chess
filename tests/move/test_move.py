@@ -1,8 +1,8 @@
-import rust_chess
+import spooky_chess
 
 
 def test_move_creation() -> None:
-    move = rust_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
+    move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
     src_square = move.src_square()
     dst_square = move.dst_square()
 
@@ -12,8 +12,8 @@ def test_move_creation() -> None:
 
 
 def test_move_creation_to_same_square() -> None:
-    game = rust_chess.Game.standard()
-    same_square_move = rust_chess.Move.from_rowcol(4, 1, 4, 1)  # e2 to e2
+    game = spooky_chess.Game.standard()
+    same_square_move = spooky_chess.Move.from_rowcol(4, 1, 4, 1)  # e2 to e2
 
     # Should be rejected as invalid
     assert game.make_move(same_square_move) is False, f"Move {same_square_move} should be invalid"

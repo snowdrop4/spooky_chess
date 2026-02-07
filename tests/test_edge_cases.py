@@ -1,8 +1,8 @@
-import rust_chess
+import spooky_chess
 
 
 def test_very_long_game() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     moves_made = 0
     max_moves = 200  # Prevent infinite loops
@@ -22,7 +22,7 @@ def test_very_long_game() -> None:
 
 
 def test_unmake_move_on_initial_position() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Should return False (no move to unmake)
     assert game.unmake_move() is False
@@ -33,7 +33,7 @@ def test_unmake_move_on_initial_position() -> None:
 
 
 def test_multiple_unmake_moves() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Make one move
     legal_moves = game.legal_moves()
@@ -50,8 +50,8 @@ def test_extreme_fen_values() -> None:
     # Test with large move numbers
     extreme_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 99 999"
 
-    game = rust_chess.Game.standard()
-    game = rust_chess.Game(width=8, height=8, fen=extreme_fen, castling_enabled=True)
+    game = spooky_chess.Game.standard()
+    game = spooky_chess.Game(width=8, height=8, fen=extreme_fen, castling_enabled=True)
 
     assert game.halfmove_clock() == 99
     assert game.fullmove_number() == 999
@@ -60,8 +60,8 @@ def test_extreme_fen_values() -> None:
 def test_fen_with_no_castling_rights() -> None:
     no_castling_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
 
-    game = rust_chess.Game.standard()
-    game = rust_chess.Game(width=8, height=8, fen=no_castling_fen, castling_enabled=True)
+    game = spooky_chess.Game.standard()
+    game = spooky_chess.Game(width=8, height=8, fen=no_castling_fen, castling_enabled=True)
 
     # Should parse successfully
     result_fen = game.to_fen()
@@ -71,7 +71,7 @@ def test_fen_with_no_castling_rights() -> None:
 def test_board_with_only_kings() -> None:
     # Create a game with only kings using FEN
     kings_only_fen = "8/8/8/8/8/8/8/4K2k w - - 0 1"
-    game = rust_chess.Game(width=8, height=8, fen=kings_only_fen, castling_enabled=False)
+    game = spooky_chess.Game(width=8, height=8, fen=kings_only_fen, castling_enabled=False)
 
     # Should have some legal moves for the white king
     legal_moves = game.legal_moves()
@@ -88,7 +88,7 @@ def test_board_with_only_kings() -> None:
 
 
 def test_move_string_representations() -> None:
-    move = rust_chess.Move.from_rowcol(0, 0, 7, 7)  # a1 to h8
+    move = spooky_chess.Move.from_rowcol(0, 0, 7, 7)  # a1 to h8
 
     lan = move.to_lan()
     assert lan == "a1h8"
@@ -102,7 +102,7 @@ def test_move_string_representations() -> None:
 
 
 def test_game_state_after_reset() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Make several moves
     for _ in range(6):
@@ -111,10 +111,10 @@ def test_game_state_after_reset() -> None:
             assert game.make_move(legal_moves[0]) is True, f"Move {legal_moves[0]} should be legal"
 
     # Create a new game for fresh state
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Should be back to initial state
-    assert game.turn() == rust_chess.WHITE
+    assert game.turn() == spooky_chess.WHITE
     assert game.fullmove_number() == 1
     assert game.halfmove_clock() == 0
     assert not game.is_check()

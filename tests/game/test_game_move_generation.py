@@ -1,8 +1,8 @@
-import rust_chess
+import spooky_chess
 
 
 def test_standard_game_initial_position_legal_moves() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
     legal_moves = game.legal_moves()
 
     # Standard chess starting position has 20 legal moves:
@@ -11,13 +11,13 @@ def test_standard_game_initial_position_legal_moves() -> None:
 
     # Check that all moves are valid Move objects
     for move in legal_moves:
-        assert isinstance(move, rust_chess.Move)
+        assert isinstance(move, spooky_chess.Move)
         assert isinstance(move.to_lan(), str)
         assert len(move.to_lan()) >= 4
 
 
 def test_standard_game_pawn_moves() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Test moves from e2
     e2_moves = game.legal_moves_for_position(4, 1)  # e2
@@ -29,7 +29,7 @@ def test_standard_game_pawn_moves() -> None:
 
 
 def test_standard_game_knight_moves() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Test moves from b1
     b1_moves = game.legal_moves_for_position(1, 0)  # b1
@@ -41,7 +41,7 @@ def test_standard_game_knight_moves() -> None:
 
 
 def test_standard_game_no_moves_from_empty_square() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Test moves from e4 (empty square)
     e4_moves = game.legal_moves_for_position(4, 3)  # e4
@@ -49,7 +49,7 @@ def test_standard_game_no_moves_from_empty_square() -> None:
 
 
 def test_standard_game_no_moves_from_opponent_piece() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Test moves from e7 (black pawn) when it's white's turn
     e7_moves = game.legal_moves_for_position(4, 6)  # e7
@@ -57,14 +57,14 @@ def test_standard_game_no_moves_from_opponent_piece() -> None:
 
 
 def test_standard_game_moves_after_game_progression() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Make e2-e4
-    move = rust_chess.Move.from_rowcol(4, 1, 4, 3)
+    move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)
     assert game.make_move(move) is True, f"Move {move} should be legal"
 
     # Now it's black's turn
-    assert game.turn() == rust_chess.BLACK
+    assert game.turn() == spooky_chess.BLACK
 
     # Legal moves should include black pieces
     legal_moves = game.legal_moves()
@@ -76,7 +76,7 @@ def test_standard_game_moves_after_game_progression() -> None:
 
 
 def test_standard_game_move_objects() -> None:
-    move = rust_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
+    move = spooky_chess.Move.from_rowcol(4, 1, 4, 3)  # e2-e4
 
     # Test basic properties
     src_square = move.src_square()
@@ -92,18 +92,18 @@ def test_standard_game_move_objects() -> None:
 
 
 def test_standard_game_move_equality() -> None:
-    move1 = rust_chess.Move.from_rowcol(4, 1, 4, 3)
-    move2 = rust_chess.Move.from_rowcol(4, 1, 4, 3)
-    move3 = rust_chess.Move.from_rowcol(4, 1, 4, 2)
+    move1 = spooky_chess.Move.from_rowcol(4, 1, 4, 3)
+    move2 = spooky_chess.Move.from_rowcol(4, 1, 4, 3)
+    move3 = spooky_chess.Move.from_rowcol(4, 1, 4, 2)
 
     assert move1 == move2
     assert move1 != move3
 
 
 def test_standard_game_move_hashing() -> None:
-    move1 = rust_chess.Move.from_rowcol(4, 1, 4, 3)
-    move2 = rust_chess.Move.from_rowcol(4, 1, 4, 3)
-    move3 = rust_chess.Move.from_rowcol(4, 1, 4, 2)
+    move1 = spooky_chess.Move.from_rowcol(4, 1, 4, 3)
+    move2 = spooky_chess.Move.from_rowcol(4, 1, 4, 3)
+    move3 = spooky_chess.Move.from_rowcol(4, 1, 4, 2)
 
     # Equal moves should have equal hashes
     assert hash(move1) == hash(move2)
@@ -114,7 +114,7 @@ def test_standard_game_move_hashing() -> None:
 
 
 def test_standard_game_legal_moves_after_capturing() -> None:
-    game = rust_chess.Game.standard()
+    game = spooky_chess.Game.standard()
 
     # Set up a position with a capture possible
     # This is a simplified test - in a real game we'd need to set up the position properly
@@ -132,7 +132,7 @@ def test_standard_game_legal_moves_after_capturing() -> None:
 
 def test_standard_game_promotion_moves() -> None:
     # Create a promotion move using LAN notation
-    move = rust_chess.Move.from_lan(lan="a7a8q", board_width=8, board_height=8)  # a7-a8 promoting to queen
+    move = spooky_chess.Move.from_lan(lan="a7a8q", board_width=8, board_height=8)  # a7-a8 promoting to queen
 
     # Should be able to query promotion
     promotion = move.promotion()
