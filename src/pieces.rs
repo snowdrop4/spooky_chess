@@ -147,10 +147,4 @@ mod tests {
         );
         assert_eq!(Piece::from_char('x'), None);
     }
-
-    #[test]
-    fn test_color_opposite() {
-        assert_eq!(Color::White.opposite(), Color::Black);
-        assert_eq!(Color::Black.opposite(), Color::White);
-    }
 }

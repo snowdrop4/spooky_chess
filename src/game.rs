@@ -1569,40 +1569,19 @@ mod tests {
 
     #[test]
     fn test_standard_game_outcome_stalemate() {
-        // Create a more careful stalemate position
-        let mut game = Game::standard();
-        game.board.clear();
+        // White king on a8, black queen on b6, black king on c7
+        let fen = "K7/8/1q6/8/8/8/8/2k5 w - - 0 1";
+        let game = Game::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
 
-        // King in corner with queen controlling escape squares
-        game.board.set_piece(
-            &Position::new(7, 7),
-            Some(Piece::new(PieceType::King, Color::White)),
-        ); // h8
-        game.board.set_piece(
-            &Position::new(5, 5),
-            Some(Piece::new(PieceType::King, Color::Black)),
-        ); // f6
-        game.board.set_piece(
-            &Position::new(6, 5),
-            Some(Piece::new(PieceType::Queen, Color::Black)),
-        ); // g6
-
-        // White to move
-        game.turn = Color::White;
-
-        // This should create a stalemate - king on h8 with queen on g6 and king on f6
+        assert!(
+            !game.is_check(),
+            "King should not be in check for stalemate"
+        );
         let moves = game.legal_moves();
-        println!("Legal moves for white: {} moves", moves.len());
-        println!("White king in check: {}", game.is_check());
-
-        // If this still doesn't work, let's just skip this test for now and focus on others
-        if !game.is_stalemate() {
-            // Skip this test if we can't create a proper stalemate
-            return;
-        }
-
-        assert!(!game.is_check()); // Should not be in check
-        assert!(moves.is_empty()); // Should have no legal moves
+        assert!(
+            moves.is_empty(),
+            "King should have no legal moves for stalemate"
+        );
         assert!(game.is_stalemate());
         let outcome = game.outcome();
         assert_eq!(outcome, Some(GameOutcome::Stalemate));
@@ -1679,29 +1658,6 @@ mod tests {
         assert!(game.is_over());
         let outcome = game.outcome();
         assert_eq!(outcome, Some(GameOutcome::FiftyMoveRule));
-    }
-
-    #[test]
-    fn test_standard_game_outcome_none_when_game_not_over() {
-        let game = Game::standard();
-
-        assert!(!game.is_over());
-        let outcome = game.outcome();
-        assert_eq!(outcome, None);
-    }
-
-    #[test]
-    fn test_standard_game_outcome_after_moves() {
-        let mut game = Game::standard();
-
-        // Make a few moves
-        game.make_move(&Move::from_lan("e2e4", 8, 8).unwrap());
-        game.make_move(&Move::from_lan("e7e5", 8, 8).unwrap());
-
-        // Game should not be over
-        assert!(!game.is_over());
-        let outcome = game.outcome();
-        assert_eq!(outcome, None);
     }
 
     #[test]

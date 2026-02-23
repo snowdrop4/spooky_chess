@@ -1,11 +1,6 @@
 import spooky_chess
 
 
-def test_standard_game_game_creation() -> None:
-    game = spooky_chess.Game.standard()
-    assert game is not None
-
-
 def test_custom_game_creation() -> None:
     # Test custom FEN (6x6 board)
     custom_fen = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1"

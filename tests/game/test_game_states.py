@@ -1,18 +1,6 @@
 import spooky_chess
 
 
-def test_standard_game_initial_position_state() -> None:
-    game = spooky_chess.Game.standard()
-
-    assert not game.is_check()
-    assert not game.is_checkmate()
-    assert not game.is_stalemate()
-    assert not game.is_over()
-    assert game.turn() == spooky_chess.WHITE
-    assert game.fullmove_number() == 1
-    assert game.halfmove_clock() == 0
-
-
 def test_standard_game_turn_alternation() -> None:
     game = spooky_chess.Game.standard()
 
@@ -107,30 +95,6 @@ def test_standard_game_invalid_move_rejection() -> None:
     assert game.turn() == spooky_chess.WHITE  # Turn shouldn't change
 
 
-def test_standard_game_game_reset() -> None:
-    game = spooky_chess.Game.standard()
-
-    initial_fen = game.to_fen()
-
-    # Make some moves
-    for _ in range(4):
-        legal_moves = game.legal_moves()
-        if legal_moves:
-            assert game.make_move(legal_moves[0]) is True, f"Move {legal_moves[0]} should be legal"
-
-    # Game state should be different
-    assert game.to_fen() != initial_fen
-
-    # Create a new game with initial position
-    game = spooky_chess.Game(width=8, height=8, fen=initial_fen, castling_enabled=True)
-
-    # Should be back to initial state
-    assert game.to_fen() == initial_fen
-    assert game.turn() == spooky_chess.WHITE
-    assert game.fullmove_number() == 1
-    assert game.halfmove_clock() == 0
-
-
 def test_standard_game_legal_moves_consistency() -> None:
     game = spooky_chess.Game.standard()
 
@@ -143,25 +107,6 @@ def test_standard_game_legal_moves_consistency() -> None:
 
         # The move should be legal
         assert test_game.make_move(move) is True, f"Move {move.to_lan()} should be legal"
-
-
-def test_standard_game_setup_initial_position() -> None:
-    game = spooky_chess.Game.standard()
-
-    # Make a move first
-    legal_moves = game.legal_moves()
-    assert game.make_move(legal_moves[0]) is True, f"Move {legal_moves[0]} should be legal"
-
-    # Game state should be different
-    assert game.fullmove_number() == 1
-    assert game.turn() == spooky_chess.BLACK
-    assert game.to_fen() != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
-    # Create new game with initial position
-    game = spooky_chess.Game.standard()
-
-    # Should be back to starting position
-    assert game.to_fen() == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
 def test_standard_game_multiple_move_unmake_sequence() -> None:

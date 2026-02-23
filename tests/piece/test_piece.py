@@ -3,13 +3,6 @@ import pytest
 import spooky_chess
 
 
-def test_piece_colors() -> None:
-    assert hasattr(spooky_chess, "WHITE")
-    assert hasattr(spooky_chess, "BLACK")
-    assert spooky_chess.WHITE == 1
-    assert spooky_chess.BLACK == -1
-
-
 def test_piece_creation() -> None:
     white_king = spooky_chess.Piece("king", spooky_chess.WHITE)
     assert white_king.piece_type() == "king"

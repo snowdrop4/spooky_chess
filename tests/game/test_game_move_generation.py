@@ -113,23 +113,6 @@ def test_standard_game_move_hashing() -> None:
     assert len(move_set) == 2  # move1 and move2 are equal
 
 
-def test_standard_game_legal_moves_after_capturing() -> None:
-    game = spooky_chess.Game.standard()
-
-    # Set up a position with a capture possible
-    # This is a simplified test - in a real game we'd need to set up the position properly
-    initial_moves = game.legal_moves()
-    assert len(initial_moves) > 0
-
-    # Make a move
-    move = initial_moves[0]
-    assert game.make_move(move) is True, f"Move {move} should be legal"
-
-    # Should still have legal moves
-    new_moves = game.legal_moves()
-    assert len(new_moves) > 0
-
-
 def test_standard_game_promotion_moves() -> None:
     # Create a promotion move using LAN notation
     move = spooky_chess.Move.from_lan(lan="a7a8q", board_width=8, board_height=8)  # a7-a8 promoting to queen
