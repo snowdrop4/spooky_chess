@@ -2,6 +2,10 @@
 name = "spooky_chess"
 version = "0.2.14"
 edition = "2021"
+description = "Chess board game engine"
+license = "MIT"
+repository = "https://github.com/snowdrop4/spooky-chess"
+include = ["src/**/*.rs", "benches/**/*.rs", "Cargo.toml", "README.md", "LICENSE.md"]
 
 [lib]
 name = "spooky_chess"
