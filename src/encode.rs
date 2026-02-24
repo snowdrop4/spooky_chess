@@ -720,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_fuzz_move_encoding_random_games() {
-        use rand::seq::SliceRandom;
+        use rand::prelude::IndexedRandom;
         use rand::SeedableRng;
         use std::sync::atomic::{AtomicU64, Ordering};
         use std::sync::Arc;
