@@ -28,9 +28,7 @@ fn setup_midgame() -> Game {
 
 fn bench_legal_moves(c: &mut Criterion) {
     let game = setup_midgame();
-    c.bench_function("legal_moves", |b| {
-        b.iter(|| black_box(game.legal_moves()))
-    });
+    c.bench_function("legal_moves", |b| b.iter(|| black_box(game.legal_moves())));
 }
 
 fn bench_make_move(c: &mut Criterion) {
