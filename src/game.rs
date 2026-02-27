@@ -203,6 +203,14 @@ impl<const NW: usize> Game<NW> {
         self.halfmove_clock
     }
 
+    pub fn move_count(&self) -> usize {
+        self.move_history.len()
+    }
+
+    pub fn move_history(&self) -> Vec<Move> {
+        self.move_history.iter().map(|e| e.mv).collect()
+    }
+
     pub fn castling_enabled(&self) -> bool {
         self.castling_enabled
     }

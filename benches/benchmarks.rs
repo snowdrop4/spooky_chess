@@ -65,7 +65,11 @@ fn bench_make_unmake(c: &mut Criterion) {
 fn bench_encode_game_planes(c: &mut Criterion) {
     let game = setup_midgame();
     c.bench_function("encode_game_planes", |b| {
-        b.iter(|| black_box(encode_game_planes(&game)))
+        b.iter_batched(
+            || game.clone(),
+            |mut g| black_box(encode_game_planes(&mut g)),
+            criterion::BatchSize::SmallInput,
+        )
     });
 }
 
@@ -103,7 +107,7 @@ fn bench_self_play_step(c: &mut Criterion) {
             || game.clone(),
             |mut g| {
                 let moves = g.legal_moves();
-                let _planes = encode_game_planes(&g);
+                let _planes = encode_game_planes(&mut g);
                 let mv = moves.first().unwrap();
                 g.make_move(mv);
                 black_box(&g);

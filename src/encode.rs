@@ -33,61 +33,36 @@ const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 
 /// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
 /// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
-pub fn encode_game_planes<const NW: usize>(game: &Game<NW>) -> (Vec<f32>, usize, usize, usize) {
+pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, usize, usize, usize) {
     let width = game.board().width();
     let height = game.board().height();
     let num_planes = TOTAL_INPUT_PLANES;
-    let total_size = num_planes * height * width;
+    let board_size = height * width;
+    let total_size = num_planes * board_size;
     let mut data = vec![0.0f32; total_size];
 
     let perspective = game.turn();
     let opponent = perspective.opposite();
 
-    let piece_types = [
-        PieceType::Pawn,
-        PieceType::Knight,
-        PieceType::Bishop,
-        PieceType::Rook,
-        PieceType::Queen,
-        PieceType::King,
-    ];
+    let history_len = game.move_count();
+    let steps_back = (HISTORY_LENGTH - 1).min(history_len);
 
-    // Helper to set a value in the flat array
-    let set_plane_value =
-        |data: &mut Vec<f32>, plane: usize, row: usize, col: usize, value: f32| {
-            data[plane * height * width + row * width + col] = value;
-        };
+    let all_moves = game.move_history();
+    let moves_to_replay: Vec<Move> = all_moves[(history_len - steps_back)..].to_vec();
 
-    // Encode current position - 6 planes for current player's pieces
-    for (piece_idx, piece_type) in piece_types.iter().enumerate() {
-        for row in 0..height {
-            for col in 0..width {
-                let pos = Position::new(col, row);
-                if let Some(piece) = game.board().get_piece(&pos) {
-                    if piece.piece_type == *piece_type && piece.color == perspective {
-                        set_plane_value(&mut data, piece_idx, row, col, 1.0);
-                    }
-                }
-            }
-        }
+    // T=0: current position
+    fill_chess_planes(&mut data, game, perspective, 0, width, height);
+
+    // T=1..steps_back: walk backward through history
+    for t in 1..=steps_back {
+        game.unmake_move();
+        fill_chess_planes(&mut data, game, perspective, t, width, height);
     }
 
-    // 6 planes for opponent's pieces
-    for (piece_idx, piece_type) in piece_types.iter().enumerate() {
-        let plane_idx = 6 + piece_idx;
-        for row in 0..height {
-            for col in 0..width {
-                let pos = Position::new(col, row);
-                if let Some(piece) = game.board().get_piece(&pos) {
-                    if piece.piece_type == *piece_type && piece.color == opponent {
-                        set_plane_value(&mut data, plane_idx, row, col, 1.0);
-                    }
-                }
-            }
-        }
+    // Replay saved moves to restore game state
+    for mv in &moves_to_replay {
+        game.make_move(mv);
     }
-
-    // Historical positions (T=2..8) are zeros (already initialized)
 
     // Constant planes start at index: HISTORY_LENGTH * PIECE_PLANES
     let constant_start = HISTORY_LENGTH * PIECE_PLANES;
@@ -101,82 +76,98 @@ pub fn encode_game_planes<const NW: usize>(game: &Game<NW>) -> (Vec<f32>, usize,
     } else {
         0.0
     };
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, color_plane, row, col, color_value);
-        }
-    }
+    fill_constant_plane(&mut data, color_plane, color_value, board_size);
 
     // Total move count plane
     let move_plane = constant_start + 3;
     let move_count = game.fullmove_number() as f32 / 100.0;
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, move_plane, row, col, move_count);
-        }
-    }
+    fill_constant_plane(&mut data, move_plane, move_count, board_size);
 
     // Castling rights (4 planes)
     let castling_rights = game.castling_rights();
 
-    let p1_kingside_plane = constant_start + 4;
     let p1_kingside = if castling_rights.has_kingside(perspective) {
         1.0
     } else {
         0.0
     };
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, p1_kingside_plane, row, col, p1_kingside);
-        }
-    }
+    fill_constant_plane(&mut data, constant_start + 4, p1_kingside, board_size);
 
-    let p1_queenside_plane = constant_start + 5;
     let p1_queenside = if castling_rights.has_queenside(perspective) {
         1.0
     } else {
         0.0
     };
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, p1_queenside_plane, row, col, p1_queenside);
-        }
-    }
+    fill_constant_plane(&mut data, constant_start + 5, p1_queenside, board_size);
 
-    let p2_kingside_plane = constant_start + 6;
     let p2_kingside = if castling_rights.has_kingside(opponent) {
         1.0
     } else {
         0.0
     };
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, p2_kingside_plane, row, col, p2_kingside);
-        }
-    }
+    fill_constant_plane(&mut data, constant_start + 6, p2_kingside, board_size);
 
-    let p2_queenside_plane = constant_start + 7;
     let p2_queenside = if castling_rights.has_queenside(opponent) {
         1.0
     } else {
         0.0
     };
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, p2_queenside_plane, row, col, p2_queenside);
-        }
-    }
+    fill_constant_plane(&mut data, constant_start + 7, p2_queenside, board_size);
 
     // No-progress count plane
-    let no_progress_plane = constant_start + 8;
     let no_progress = game.halfmove_clock() as f32 / 50.0;
-    for row in 0..height {
-        for col in 0..width {
-            set_plane_value(&mut data, no_progress_plane, row, col, no_progress);
-        }
-    }
+    fill_constant_plane(&mut data, constant_start + 8, no_progress, board_size);
 
     (data, num_planes, height, width)
+}
+
+fn fill_constant_plane(data: &mut [f32], plane: usize, value: f32, board_size: usize) {
+    let offset = plane * board_size;
+    for i in 0..board_size {
+        data[offset + i] = value;
+    }
+}
+
+fn fill_chess_planes<const NW: usize>(
+    data: &mut [f32],
+    game: &Game<NW>,
+    perspective: Color,
+    t: usize,
+    width: usize,
+    height: usize,
+) {
+    let opponent = perspective.opposite();
+    let board_size = height * width;
+    let base_plane = t * PIECE_PLANES;
+
+    let piece_types = [
+        PieceType::Pawn,
+        PieceType::Knight,
+        PieceType::Bishop,
+        PieceType::Rook,
+        PieceType::Queen,
+        PieceType::King,
+    ];
+
+    for (piece_idx, piece_type) in piece_types.iter().enumerate() {
+        let own_offset = (base_plane + piece_idx) * board_size;
+        let opp_offset = (base_plane + 6 + piece_idx) * board_size;
+        for row in 0..height {
+            for col in 0..width {
+                let pos = Position::new(col, row);
+                if let Some(piece) = game.board().get_piece(&pos) {
+                    let idx = row * width + col;
+                    if piece.piece_type == *piece_type {
+                        if piece.color == perspective {
+                            data[own_offset + idx] = 1.0;
+                        } else if piece.color == opponent {
+                            data[opp_offset + idx] = 1.0;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Encode a move as a plane index for the policy head
@@ -433,8 +424,8 @@ mod tests {
 
     #[test]
     fn test_standard_game_encode_initial_position() {
-        let game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&game);
+        let mut game = Game::standard();
+        let (data, num_planes, height, width) = encode_game_planes(&mut game);
 
         // Should have TOTAL_INPUT_PLANES planes
         assert_eq!(num_planes, TOTAL_INPUT_PLANES);
@@ -462,8 +453,8 @@ mod tests {
 
     #[test]
     fn test_standard_game_encode_game() {
-        let game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&game);
+        let mut game = Game::standard();
+        let (data, num_planes, height, width) = encode_game_planes(&mut game);
 
         // Should have TOTAL_INPUT_PLANES planes
         assert_eq!(num_planes, TOTAL_INPUT_PLANES);
