@@ -15,6 +15,19 @@ impl Position {
         self.col < width && self.row < height
     }
 
+    #[inline]
+    pub fn to_index(&self, width: usize) -> usize {
+        self.row * width + self.col
+    }
+
+    #[inline]
+    pub fn from_index(index: usize, width: usize) -> Position {
+        Position {
+            col: index % width,
+            row: index / width,
+        }
+    }
+
     pub fn to_algebraic(&self) -> String {
         if self.col < 26 {
             format!("{}{}", (b'a' + self.col as u8) as char, self.row + 1)
@@ -28,8 +41,7 @@ impl Position {
             return Err("Invalid position string".to_string());
         }
 
-        let chars: Vec<char> = s.chars().collect();
-        let col_char = chars[0];
+        let col_char = s.as_bytes()[0] as char;
         let row_str = &s[1..];
 
         let col = if col_char.is_ascii_lowercase() {

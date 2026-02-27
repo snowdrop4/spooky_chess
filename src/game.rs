@@ -1,4 +1,7 @@
-use crate::board::Board;
+use arrayvec::ArrayVec;
+
+use crate::bitboard::nw_for_board;
+use crate::board::{Board, STANDARD_COLS, STANDARD_ROWS};
 use crate::color::Color;
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
@@ -15,8 +18,8 @@ struct MoveHistoryEntry {
 }
 
 #[derive(Clone)]
-pub struct Game {
-    board: Board,
+pub struct Game<const NW: usize> {
+    board: Board<NW>,
     turn: Color,
     move_history: Vec<MoveHistoryEntry>,
 
@@ -80,14 +83,14 @@ impl CastlingRights {
     }
 }
 
-impl Game {
+impl<const NW: usize> Game<NW> {
     pub fn new(
         width: usize,
         height: usize,
         fen: &str,
         castling_enabled: bool,
     ) -> Result<Self, String> {
-        let parts: Vec<&str> = fen.split(' ').collect();
+        let parts: ArrayVec<&str, 6> = fen.split(' ').collect();
 
         if parts.is_empty() {
             return Err("Empty FEN string".to_string());
@@ -164,16 +167,6 @@ impl Game {
         })
     }
 
-    pub fn standard() -> Self {
-        Self::new(
-            8,
-            8,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-            true,
-        )
-        .expect("Failed to create standard game")
-    }
-
     pub fn width(&self) -> usize {
         self.board.width()
     }
@@ -190,11 +183,11 @@ impl Game {
         self.board.set_piece(pos, piece)
     }
 
-    pub fn board(&self) -> &Board {
+    pub fn board(&self) -> &Board<NW> {
         &self.board
     }
 
-    pub fn board_mut(&mut self) -> &mut Board {
+    pub fn board_mut(&mut self) -> &mut Board<NW> {
         &mut self.board
     }
 
@@ -1166,37 +1159,40 @@ impl Game {
     }
 
     pub fn is_insufficient_material(&self) -> bool {
-        // Count pieces for both sides
-        let mut white_pieces = Vec::new();
-        let mut black_pieces = Vec::new();
+        // Count specific piece types for both sides
+        let mut white_pawns = 0;
+        let mut white_queens = 0;
+        let mut white_rooks = 0;
+        let mut white_bishops = 0;
+        let mut white_knights = 0;
 
         for (_, piece) in self.board.pieces(Color::White) {
-            white_pieces.push(piece.piece_type);
+            match piece.piece_type {
+                PieceType::Pawn => white_pawns += 1,
+                PieceType::Queen => white_queens += 1,
+                PieceType::Rook => white_rooks += 1,
+                PieceType::Bishop => white_bishops += 1,
+                PieceType::Knight => white_knights += 1,
+                PieceType::King => {}
+            }
         }
+
+        let mut black_pawns = 0;
+        let mut black_queens = 0;
+        let mut black_rooks = 0;
+        let mut black_bishops = 0;
+        let mut black_knights = 0;
+
         for (_, piece) in self.board.pieces(Color::Black) {
-            black_pieces.push(piece.piece_type);
+            match piece.piece_type {
+                PieceType::Pawn => black_pawns += 1,
+                PieceType::Queen => black_queens += 1,
+                PieceType::Rook => black_rooks += 1,
+                PieceType::Bishop => black_bishops += 1,
+                PieceType::Knight => black_knights += 1,
+                PieceType::King => {}
+            }
         }
-
-        // Remove kings from count as they're always present
-        white_pieces.retain(|&p| p != PieceType::King);
-        black_pieces.retain(|&p| p != PieceType::King);
-
-        // Count specific piece types
-        let count_pieces = |pieces: &[PieceType], piece_type: PieceType| -> usize {
-            pieces.iter().filter(|&&p| p == piece_type).count()
-        };
-
-        let white_pawns = count_pieces(&white_pieces, PieceType::Pawn);
-        let white_queens = count_pieces(&white_pieces, PieceType::Queen);
-        let white_rooks = count_pieces(&white_pieces, PieceType::Rook);
-        let white_bishops = count_pieces(&white_pieces, PieceType::Bishop);
-        let white_knights = count_pieces(&white_pieces, PieceType::Knight);
-
-        let black_pawns = count_pieces(&black_pieces, PieceType::Pawn);
-        let black_queens = count_pieces(&black_pieces, PieceType::Queen);
-        let black_rooks = count_pieces(&black_pieces, PieceType::Rook);
-        let black_bishops = count_pieces(&black_pieces, PieceType::Bishop);
-        let black_knights = count_pieces(&black_pieces, PieceType::Knight);
 
         // If either side has pawns, queens, or rooks, there's sufficient material
         if white_pawns + white_queens + white_rooks > 0
@@ -1231,29 +1227,25 @@ impl Game {
     }
 
     fn are_all_bishops_on_same_color(&self) -> bool {
-        let mut bishop_square_colors = Vec::new();
+        let bishops = self.board.piece_type_bb(PieceType::Bishop);
+        let mut first_color: Option<usize> = None;
+        let w = self.board.width();
 
-        // Collect square colors of all bishops (both white and black)
-        for color in &[Color::White, Color::Black] {
-            for (pos, piece) in self.board.pieces(*color) {
-                if piece.piece_type == PieceType::Bishop {
-                    // A square is light if (col + row) is even
-                    let square_color = (pos.col + pos.row) % 2;
-                    bishop_square_colors.push(square_color);
-                }
+        // Check square colors of all bishops (both white and black)
+        for idx in bishops.iter_ones() {
+            // A square is light if (col + row) is even
+            let col = idx % w;
+            let row = idx / w;
+            let square_color = (col + row) % 2;
+            match first_color {
+                None => first_color = Some(square_color),
+                Some(c) if c != square_color => return false,
+                _ => {}
             }
         }
 
-        // If there are no bishops, return false
-        if bishop_square_colors.is_empty() {
-            return false;
-        }
-
-        // If all bishops are on the same color squares, it's insufficient material
-        let first_color = bishop_square_colors[0];
-        bishop_square_colors
-            .iter()
-            .all(|&color| color == first_color)
+        // If there are no bishops, return false; otherwise all matched
+        first_color.is_some()
     }
 
     pub fn to_fen(&self) -> String {
@@ -1265,24 +1257,26 @@ impl Game {
 
         // Castling rights
         fen.push(' ');
-        let mut castling = String::new();
-        if self.castling_rights.white_kingside {
-            castling.push('K');
-        }
-        if self.castling_rights.white_queenside {
-            castling.push('Q');
-        }
-        if self.castling_rights.black_kingside {
-            castling.push('k');
-        }
-        if self.castling_rights.black_queenside {
-            castling.push('q');
-        }
+        let has_any = self.castling_rights.white_kingside
+            || self.castling_rights.white_queenside
+            || self.castling_rights.black_kingside
+            || self.castling_rights.black_queenside;
 
-        if castling.is_empty() {
+        if !has_any {
             fen.push('-');
         } else {
-            fen.push_str(&castling);
+            if self.castling_rights.white_kingside {
+                fen.push('K');
+            }
+            if self.castling_rights.white_queenside {
+                fen.push('Q');
+            }
+            if self.castling_rights.black_kingside {
+                fen.push('k');
+            }
+            if self.castling_rights.black_queenside {
+                fen.push('q');
+            }
         }
 
         // En passant (only include if there are legal en passant moves)
@@ -1309,7 +1303,22 @@ impl Game {
     }
 }
 
-impl std::fmt::Display for Game {
+/// Type alias for a standard 8x8 game
+pub type StandardGame = Game<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
+
+impl StandardGame {
+    pub fn standard() -> Self {
+        Self::new(
+            8,
+            8,
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            true,
+        )
+        .expect("Failed to create standard game")
+    }
+}
+
+impl<const NW: usize> std::fmt::Display for Game<NW> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -1326,9 +1335,11 @@ impl std::fmt::Display for Game {
 mod tests {
     use super::*;
 
+    type StdGame = Game<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
+
     #[test]
     fn test_standard_game_creation() {
-        let game = Game::standard();
+        let game = StdGame::standard();
         assert_eq!(game.board().width(), 8);
         assert_eq!(game.board().height(), 8);
         assert_eq!(game.turn(), Color::White);
@@ -1338,7 +1349,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_initial_position() {
-        let game = Game::standard();
+        let game = StdGame::standard();
         let fen = game.to_fen();
         assert_eq!(
             fen,
@@ -1348,7 +1359,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_king_tracking() {
-        let game = Game::standard();
+        let game = StdGame::standard();
 
         assert_eq!(game.white_king_pos, Position::new(4, 0));
         assert_eq!(game.black_king_pos, Position::new(4, 7));
@@ -1356,7 +1367,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_rook_attack_patterns() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         let rook = Piece::new(PieceType::Rook, Color::White);
@@ -1382,7 +1393,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_bishop_attack_patterns() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         let bishop = Piece::new(PieceType::Bishop, Color::White);
@@ -1410,7 +1421,7 @@ mod tests {
     fn test_standard_game_fen_parsing_valid_en_passant() {
         // Test with a valid en passant scenario
         let valid_ep_fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
-        let game = Game::new(8, 8, valid_ep_fen, true).expect("Failed to parse FEN");
+        let game = StdGame::new(8, 8, valid_ep_fen, true).expect("Failed to parse FEN");
 
         assert_eq!(game.to_fen(), valid_ep_fen);
         assert_eq!(game.turn(), Color::White);
@@ -1421,7 +1432,7 @@ mod tests {
     #[test]
     fn test_standard_game_fen_parsing_invalid_en_passant() {
         let invalid_ep_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-        let game = Game::new(8, 8, invalid_ep_fen, true).expect("Failed to parse FEN");
+        let game = StdGame::new(8, 8, invalid_ep_fen, true).expect("Failed to parse FEN");
 
         // Note: en passant square e3 is ignored because there's no enemy pawn that can capture
         assert_eq!(
@@ -1435,8 +1446,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_move_making_basic() {
-        let mut game = Game::standard();
-        let _initial_fen = game.to_fen();
+        let mut game = StdGame::standard();
 
         // Make a simple pawn move
         let e4_move =
@@ -1460,11 +1470,11 @@ mod tests {
         // Create custom FENs for different board sizes
         let fen_6x6 = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1";
 
-        let game = Game::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
+        let game: Game<{ nw_for_board(6, 6) }> =
+            Game::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
         assert_eq!(game.board().width(), 6);
         assert_eq!(game.board().height(), 6);
 
-        // Check that tracked positions match actual king positions
         assert_eq!(
             game.board()
                 .get_piece(&game.white_king_pos)
@@ -1480,6 +1490,7 @@ mod tests {
             PieceType::King
         );
 
+        // Check that tracked positions match actual king positions
         // Should be able to generate FEN
         let fen = game.to_fen();
         assert!(!fen.is_empty());
@@ -1488,7 +1499,8 @@ mod tests {
     #[test]
     fn test_custom_game_piece_placement() {
         let fen_6x6 = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1";
-        let game = Game::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
+        let game: Game<{ nw_for_board(6, 6) }> =
+            Game::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
         let white_pieces = game.board().pieces(Color::White);
         let black_pieces = game.board().pieces(Color::Black);
 
@@ -1512,7 +1524,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_is_square_attacked_basic() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         // Place a white rook at e5
@@ -1534,11 +1546,10 @@ mod tests {
 
     #[test]
     fn test_standard_game_outcome_checkmate_white_wins() {
-        // Fool's mate - white wins
-        let mut game = Game::standard();
+        // Scholar's mate - white wins
+        // 1. e4 e5, 2. Bc4 Nc6, 3. Qh5 Nf6??, 4. Qxf7#
+        let mut game = StdGame::standard();
 
-        // This is actually setting up a position where black gets checkmated
-        // 1. e4 e5, 2. Bc4 Nc6, 3. Qh5 Nf6??, 4. Qxf7# (Scholar's mate)
         game.make_move(&Move::from_lan("e2e4", 8, 8).unwrap());
         game.make_move(&Move::from_lan("e7e5", 8, 8).unwrap());
         game.make_move(&Move::from_lan("f1c4", 8, 8).unwrap());
@@ -1555,7 +1566,7 @@ mod tests {
     #[test]
     fn test_standard_game_outcome_checkmate_black_wins() {
         // Fool's mate - black wins
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
 
         game.make_move(&Move::from_lan("f2f3", 8, 8).unwrap());
         game.make_move(&Move::from_lan("e7e5", 8, 8).unwrap());
@@ -1571,7 +1582,7 @@ mod tests {
     fn test_standard_game_outcome_stalemate() {
         // White king on a8, black queen on b6, black king on c7
         let fen = "K7/8/1q6/8/8/8/8/2k5 w - - 0 1";
-        let game = Game::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
+        let game = StdGame::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
 
         assert!(
             !game.is_check(),
@@ -1589,7 +1600,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_outcome_insufficient_material() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         // King vs King - insufficient material
@@ -1610,7 +1621,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_outcome_insufficient_material_bishop() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         // King + Bishop vs King - insufficient material
@@ -1635,7 +1646,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_outcome_fifty_move_rule() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
         game.board.clear();
 
         // Set up a simple position with just kings and a rook
@@ -1662,7 +1673,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_halfmove_clock_reset_on_pawn_move() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
 
         // Make some non-pawn moves to increase halfmove clock
         game.make_move(&Move::from_lan("g1f3", 8, 8).unwrap());
@@ -1679,7 +1690,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_halfmove_clock_reset_on_capture() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
 
         // Set up a position where a capture is possible
         game.make_move(&Move::from_lan("e2e4", 8, 8).unwrap());
@@ -1699,7 +1710,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_castling_rights_methods() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
 
         // Initial position should have all castling rights
         assert!(game.castling_rights().has_kingside(Color::White));
@@ -1722,7 +1733,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_castling_rights_rook_move() {
-        let mut game = Game::standard();
+        let mut game = StdGame::standard();
 
         // Clear path for rook movement
         game.board_clear();

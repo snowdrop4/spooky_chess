@@ -33,7 +33,7 @@ const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 
 /// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
 /// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
-pub fn encode_game_planes(game: &Game) -> (Vec<f32>, usize, usize, usize) {
+pub fn encode_game_planes<const NW: usize>(game: &Game<NW>) -> (Vec<f32>, usize, usize, usize) {
     let width = game.board().width();
     let height = game.board().height();
     let num_planes = TOTAL_INPUT_PLANES;

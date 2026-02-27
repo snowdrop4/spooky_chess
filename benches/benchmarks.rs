@@ -3,13 +3,13 @@ use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use spooky_chess::encode::encode_game_planes;
-use spooky_chess::game::Game;
+use spooky_chess::game::StandardGame;
 use std::hint::black_box;
 
 /// Play ~20 random moves on a fresh game to create a realistic mid-game position.
 /// Uses a fixed seed for reproducibility across benchmark runs.
-fn setup_midgame() -> Game {
-    let mut game = Game::standard();
+fn setup_midgame() -> StandardGame {
+    let mut game = StandardGame::standard();
     let mut rng = StdRng::seed_from_u64(42);
     for _ in 0..20 {
         let moves = game.legal_moves();
@@ -81,7 +81,7 @@ fn bench_outcome(c: &mut Criterion) {
 fn bench_random_playout(c: &mut Criterion) {
     c.bench_function("random_playout", |b| {
         b.iter(|| {
-            let mut game = Game::standard();
+            let mut game = StandardGame::standard();
             let mut rng = StdRng::seed_from_u64(123);
             while !game.is_over() {
                 let moves = game.legal_moves();

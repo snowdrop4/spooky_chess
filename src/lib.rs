@@ -1,3 +1,4 @@
+pub mod bitboard;
 pub mod board;
 pub mod color;
 pub mod encode;
@@ -6,9 +7,6 @@ pub mod r#move;
 pub mod outcome;
 pub mod pieces;
 pub mod position;
-
-#[cfg(feature = "serde")]
-pub mod serde_support;
 
 #[cfg(feature = "python")]
 extern crate pyo3;
@@ -39,6 +37,7 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(feature = "python")]
 mod python_bindings {
     use super::*;
+    use crate::bitboard::nw_for_board;
     use crate::board::Board;
     use crate::color::Color;
     use crate::game::Game;
@@ -47,10 +46,100 @@ mod python_bindings {
     use crate::position::Position;
     use crate::r#move::{Move, MoveFlags};
 
+    // -----------------------------------------------------------------------
+    // Enum dispatch via paste! for Game<NW> and Board<NW>
+    // -----------------------------------------------------------------------
+
+    macro_rules! define_dispatch {
+        ($($nw:literal),*) => {
+            paste::paste! {
+                #[derive(Clone)]
+                enum GameInner {
+                    $( [<Nw $nw>](Game<$nw>), )*
+                }
+
+                #[derive(Clone)]
+                enum BoardInner {
+                    $( [<Nw $nw>](Board<$nw>), )*
+                }
+
+                macro_rules! dispatch_game {
+                    ($self_:expr, $g:ident => $body:expr) => {
+                        match $self_ {
+                            $( GameInner::[<Nw $nw>]($g) => $body, )*
+                        }
+                    };
+                }
+
+                macro_rules! dispatch_game_mut {
+                    ($self_:expr, $g:ident => $body:expr) => {
+                        match $self_ {
+                            $( GameInner::[<Nw $nw>]($g) => $body, )*
+                        }
+                    };
+                }
+
+                macro_rules! dispatch_board {
+                    ($self_:expr, $b:ident => $body:expr) => {
+                        match $self_ {
+                            $( BoardInner::[<Nw $nw>]($b) => $body, )*
+                        }
+                    };
+                }
+
+                macro_rules! dispatch_board_mut {
+                    ($self_:expr, $b:ident => $body:expr) => {
+                        match $self_ {
+                            $( BoardInner::[<Nw $nw>]($b) => $body, )*
+                        }
+                    };
+                }
+
+                fn make_game_inner(width: usize, height: usize, fen: &str, castling_enabled: bool) -> Result<GameInner, String> {
+                    let nw = nw_for_board(width as u8, height as u8);
+                    match nw {
+                        $( $nw => Ok(GameInner::[<Nw $nw>](Game::new(width, height, fen, castling_enabled)?)), )*
+                        _ => Err(format!("NW out of range: {}", nw)),
+                    }
+                }
+
+                fn make_standard_game_inner() -> GameInner {
+                    GameInner::Nw1(Game::standard())
+                }
+
+                fn make_board_inner(width: usize, height: usize, fen: &str) -> Result<BoardInner, String> {
+                    let nw = nw_for_board(width as u8, height as u8);
+                    match nw {
+                        $( $nw => Ok(BoardInner::[<Nw $nw>](Board::new(width, height, fen)?)), )*
+                        _ => Err(format!("NW out of range: {}", nw)),
+                    }
+                }
+
+                fn make_empty_board_inner(width: usize, height: usize) -> Result<BoardInner, String> {
+                    let nw = nw_for_board(width as u8, height as u8);
+                    match nw {
+                        $( $nw => Ok(BoardInner::[<Nw $nw>](Board::empty(width, height))), )*
+                        _ => Err(format!("NW out of range: {}", nw)),
+                    }
+                }
+
+                fn make_standard_board_inner() -> BoardInner {
+                    BoardInner::Nw1(Board::standard())
+                }
+            }
+        }
+    }
+
+    define_dispatch!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+
+    // -----------------------------------------------------------------------
+    // PyBoard
+    // -----------------------------------------------------------------------
+
     #[pyclass(name = "Board")]
     #[derive(Clone)]
     pub struct PyBoard {
-        board: Board,
+        inner: BoardInner,
     }
 
     #[pymethods]
@@ -67,15 +156,15 @@ mod python_bindings {
                     "Board height must be between 1 and 32",
                 ));
             }
-            let board = Board::new(width, height, fen)
+            let inner = make_board_inner(width, height, fen)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
-            Ok(PyBoard { board })
+            Ok(PyBoard { inner })
         }
 
         #[staticmethod]
         pub fn standard() -> Self {
             PyBoard {
-                board: Board::standard(),
+                inner: make_standard_board_inner(),
             }
         }
 
@@ -91,53 +180,53 @@ mod python_bindings {
                     "Board height must be between 1 and 32",
                 ));
             }
-            Ok(PyBoard {
-                board: Board::empty(width, height),
-            })
+            let inner = make_empty_board_inner(width, height)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+            Ok(PyBoard { inner })
         }
 
         pub fn to_fen(&self) -> String {
-            self.board.to_fen()
+            dispatch_board!(&self.inner, b => b.to_fen())
         }
 
         pub fn clear(&mut self) {
-            self.board.clear();
+            dispatch_board_mut!(&mut self.inner, b => b.clear())
         }
 
         pub fn width(&self) -> usize {
-            self.board.width()
+            dispatch_board!(&self.inner, b => b.width())
         }
 
         pub fn height(&self) -> usize {
-            self.board.height()
+            dispatch_board!(&self.inner, b => b.height())
         }
 
         pub fn get_piece(&self, col: usize, row: usize) -> Option<PyPiece> {
             let pos = Position::new(col, row);
-            self.board.get_piece(&pos).map(|p| PyPiece { piece: p })
+            dispatch_board!(&self.inner, b => b.get_piece(&pos).map(|p| PyPiece { piece: p }))
         }
 
         pub fn set_piece(&mut self, col: usize, row: usize, piece: Option<PyPiece>) {
             let pos = Position::new(col, row);
-            self.board.set_piece(&pos, piece.map(|p| p.piece));
+            dispatch_board_mut!(&mut self.inner, b => b.set_piece(&pos, piece.map(|p| p.piece)))
         }
 
         pub fn __str__(&self) -> String {
-            self.board.to_string()
+            dispatch_board!(&self.inner, b => b.to_string())
         }
 
         pub fn __repr__(&self) -> String {
-            format!(
-                "Board(width={}, height={})",
-                self.board.width(),
-                self.board.height()
-            )
+            format!("Board(width={}, height={})", self.width(), self.height())
         }
     }
 
+    // -----------------------------------------------------------------------
+    // PyGame
+    // -----------------------------------------------------------------------
+
     #[pyclass(name = "Game")]
     pub struct PyGame {
-        game: Game,
+        inner: GameInner,
     }
 
     #[pymethods]
@@ -149,15 +238,15 @@ mod python_bindings {
             fen: &str,
             castling_enabled: bool,
         ) -> PyResult<Self> {
-            let game = Game::new(width, height, fen, castling_enabled)
+            let inner = make_game_inner(width, height, fen, castling_enabled)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
-            Ok(PyGame { game })
+            Ok(PyGame { inner })
         }
 
         #[staticmethod]
         pub fn standard() -> Self {
             PyGame {
-                game: Game::standard(),
+                inner: make_standard_game_inner(),
             }
         }
 
@@ -166,19 +255,19 @@ mod python_bindings {
         // ---------------------------------------------------------------------
 
         pub fn turn(&self) -> i8 {
-            self.game.turn() as i8
+            dispatch_game!(&self.inner, g => g.turn() as i8)
         }
 
         pub fn fullmove_number(&self) -> u32 {
-            self.game.fullmove_number()
+            dispatch_game!(&self.inner, g => g.fullmove_number())
         }
 
         pub fn halfmove_clock(&self) -> u32 {
-            self.game.halfmove_clock()
+            dispatch_game!(&self.inner, g => g.halfmove_clock())
         }
 
         pub fn castling_enabled(&self) -> bool {
-            self.game.castling_enabled()
+            dispatch_game!(&self.inner, g => g.castling_enabled())
         }
 
         pub fn has_kingside_castling_rights(&self, color: i8) -> bool {
@@ -187,7 +276,7 @@ mod python_bindings {
             } else {
                 Color::Black
             };
-            self.game.castling_rights().has_kingside(color)
+            dispatch_game!(&self.inner, g => g.castling_rights().has_kingside(color))
         }
 
         pub fn has_queenside_castling_rights(&self, color: i8) -> bool {
@@ -196,67 +285,72 @@ mod python_bindings {
             } else {
                 Color::Black
             };
-            self.game.castling_rights().has_queenside(color)
+            dispatch_game!(&self.inner, g => g.castling_rights().has_queenside(color))
         }
 
         pub fn make_move(&mut self, move_: PyMove) -> PyResult<bool> {
-            Ok(self.game.make_move(&move_.move_))
+            Ok(dispatch_game_mut!(&mut self.inner, g => g.make_move(&move_.move_)))
         }
 
         pub fn unmake_move(&mut self) -> bool {
-            self.game.unmake_move()
+            dispatch_game_mut!(&mut self.inner, g => g.unmake_move())
         }
 
         pub fn is_legal_move(&self, move_: PyMove) -> bool {
-            self.game.is_legal_move(&move_.move_)
+            dispatch_game!(&self.inner, g => g.is_legal_move(&move_.move_))
         }
 
         pub fn legal_moves(&self) -> Vec<PyMove> {
-            self.game
-                .legal_moves()
-                .into_iter()
-                .map(|m| PyMove { move_: m })
-                .collect()
+            dispatch_game!(&self.inner, g => {
+                g.legal_moves()
+                    .into_iter()
+                    .map(|m| PyMove { move_: m })
+                    .collect()
+            })
         }
 
         pub fn psuedo_legal_moves(&self) -> Vec<PyMove> {
-            self.game
-                .psuedo_legal_moves()
-                .into_iter()
-                .map(|m| PyMove { move_: m })
-                .collect()
+            dispatch_game!(&self.inner, g => {
+                g.psuedo_legal_moves()
+                    .into_iter()
+                    .map(|m| PyMove { move_: m })
+                    .collect()
+            })
         }
 
         pub fn legal_moves_for_position(&self, col: usize, row: usize) -> Vec<PyMove> {
             let pos = Position::new(col, row);
-            self.game
-                .legal_moves_for_position(&pos)
-                .into_iter()
-                .map(|m| PyMove { move_: m })
-                .collect()
+            dispatch_game!(&self.inner, g => {
+                g.legal_moves_for_position(&pos)
+                    .into_iter()
+                    .map(|m| PyMove { move_: m })
+                    .collect()
+            })
         }
 
         pub fn move_from_lan(&self, lan: &str) -> PyResult<PyMove> {
-            match self.game.move_from_lan(lan) {
-                Ok(move_) => Ok(PyMove { move_ }),
-                Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
-            }
+            dispatch_game!(&self.inner, g => {
+                match g.move_from_lan(lan) {
+                    Ok(move_) => Ok(PyMove { move_ }),
+                    Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
+                }
+            })
         }
 
         pub fn is_check(&self) -> bool {
-            self.game.is_check()
+            dispatch_game!(&self.inner, g => g.is_check())
         }
 
         pub fn is_checkmate(&self) -> bool {
-            self.game.is_checkmate()
+            dispatch_game!(&self.inner, g => g.is_checkmate())
         }
 
         pub fn is_stalemate(&self) -> bool {
-            self.game.is_stalemate()
+            dispatch_game!(&self.inner, g => g.is_stalemate())
         }
 
         pub fn is_over(&self) -> bool {
-            self.game.is_over()
+            dispatch_game!(&self.inner, g => g.is_over())
         }
 
         // ---------------------------------------------------------------------
@@ -264,52 +358,57 @@ mod python_bindings {
         // ---------------------------------------------------------------------
 
         pub fn width(&self) -> usize {
-            self.game.board().width()
+            dispatch_game!(&self.inner, g => g.board().width())
         }
 
         pub fn height(&self) -> usize {
-            self.game.board().height()
+            dispatch_game!(&self.inner, g => g.board().height())
         }
 
         pub fn get_piece(&self, col: usize, row: usize) -> Option<PyPiece> {
             let pos = Position::new(col, row);
-            self.game.get_piece(&pos).map(|p| PyPiece { piece: p })
+            dispatch_game!(&self.inner, g => g.get_piece(&pos).map(|p| PyPiece { piece: p }))
         }
 
         pub fn set_piece(&mut self, col: usize, row: usize, piece: Option<PyPiece>) {
             let pos = Position::new(col, row);
-            self.game.set_piece(&pos, piece.map(|p| p.piece));
+            dispatch_game_mut!(&mut self.inner, g => g.set_piece(&pos, piece.map(|p| p.piece)))
         }
 
         pub fn legal_action_indices(&self) -> Vec<usize> {
-            let width = self.game.board().width();
-            let height = self.game.board().height();
-            self.game
-                .legal_moves()
-                .into_iter()
-                .filter_map(|m| encode::encode_move(&m, width, height))
-                .collect()
+            dispatch_game!(&self.inner, g => {
+                let width = g.board().width();
+                let height = g.board().height();
+                g.legal_moves()
+                    .into_iter()
+                    .filter_map(|m| encode::encode_move(&m, width, height))
+                    .collect()
+            })
         }
 
         pub fn apply_action(&mut self, action: usize) -> bool {
-            let width = self.game.board().width();
-            let height = self.game.board().height();
-            for move_ in self.game.legal_moves() {
-                if let Some(encoded) = encode::encode_move(&move_, width, height) {
-                    if encoded == action {
-                        return self.game.make_move(&move_);
+            dispatch_game_mut!(&mut self.inner, g => {
+                let width = g.board().width();
+                let height = g.board().height();
+                for move_ in g.legal_moves() {
+                    if let Some(encoded) = encode::encode_move(&move_, width, height) {
+                        if encoded == action {
+                            return g.make_move(&move_);
+                        }
                     }
                 }
-            }
-            false
+                false
+            })
         }
 
         pub fn action_size(&self) -> usize {
-            encode::get_move_planes_count(self.game.board().width(), self.game.board().height())
+            dispatch_game!(&self.inner, g => {
+                encode::get_move_planes_count(g.board().width(), g.board().height())
+            })
         }
 
         pub fn board_shape(&self) -> (usize, usize) {
-            (self.game.board().height(), self.game.board().width())
+            dispatch_game!(&self.inner, g => (g.board().height(), g.board().width()))
         }
 
         pub fn input_plane_count(&self) -> usize {
@@ -317,72 +416,74 @@ mod python_bindings {
         }
 
         pub fn reward_absolute(&self) -> f32 {
-            self.game
-                .outcome()
-                .map(|o| o.encode_winner_absolute())
-                .unwrap_or(0.0)
+            dispatch_game!(&self.inner, g => {
+                g.outcome()
+                    .map(|o| o.encode_winner_absolute())
+                    .unwrap_or(0.0)
+            })
         }
 
         pub fn reward_from_perspective(&self, perspective: i8) -> f32 {
-            self.game
-                .outcome()
-                .map(|o| {
-                    o.encode_winner_from_perspective(
-                        Color::from_int(perspective).expect("Invalid perspective"),
-                    )
-                })
-                .unwrap_or(0.0)
+            dispatch_game!(&self.inner, g => {
+                g.outcome()
+                    .map(|o| {
+                        o.encode_winner_from_perspective(
+                            Color::from_int(perspective).expect("Invalid perspective"),
+                        )
+                    })
+                    .unwrap_or(0.0)
+            })
         }
 
         pub fn name(&self) -> String {
-            format!(
-                "chess_{}x{}",
-                self.game.board().width(),
-                self.game.board().height()
-            )
+            dispatch_game!(&self.inner, g => {
+                format!(
+                    "chess_{}x{}",
+                    g.board().width(),
+                    g.board().height()
+                )
+            })
         }
 
         pub fn is_insufficient_material(&self) -> bool {
-            self.game.is_insufficient_material()
+            dispatch_game!(&self.inner, g => g.is_insufficient_material())
         }
 
         pub fn has_legal_en_passant(&self) -> bool {
-            self.game.has_legal_en_passant()
+            dispatch_game!(&self.inner, g => g.has_legal_en_passant())
         }
 
         pub fn en_passant_square(&self) -> Option<PyPosition> {
-            self.game.en_passant_square().map(|pos| PyPosition { pos })
+            dispatch_game!(&self.inner, g => g.en_passant_square().map(|pos| PyPosition { pos }))
         }
 
         pub fn outcome(&self) -> Option<PyGameOutcome> {
-            self.game.outcome().map(|outcome| PyGameOutcome { outcome })
+            dispatch_game!(&self.inner, g => g.outcome().map(|outcome| PyGameOutcome { outcome }))
         }
 
         pub fn to_fen(&self) -> String {
-            self.game.to_fen()
+            dispatch_game!(&self.inner, g => g.to_fen())
         }
 
         pub fn clone(&self) -> PyGame {
             PyGame {
-                game: self.game.clone(),
+                inner: self.inner.clone(),
             }
         }
 
         pub fn __hash__(&self) -> u64 {
             use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-
-            self.game.board().hash(&mut hasher);
-            (self.game.turn() as i8).hash(&mut hasher);
-            self.game.castling_rights().hash(&mut hasher);
-
-            if let Some(ep_square) = self.game.en_passant_square() {
-                ep_square.hash(&mut hasher);
-            }
-
-            self.game.halfmove_clock().hash(&mut hasher);
-
-            hasher.finish()
+            dispatch_game!(&self.inner, g => {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                g.board().hash(&mut hasher);
+                (g.turn() as i8).hash(&mut hasher);
+                g.castling_rights().hash(&mut hasher);
+                if let Some(ep_square) = g.en_passant_square() {
+                    ep_square.hash(&mut hasher);
+                }
+                g.halfmove_clock().hash(&mut hasher);
+                hasher.finish()
+            })
         }
 
         // ---------------------------------------------------------------------
@@ -390,7 +491,7 @@ mod python_bindings {
         // ---------------------------------------------------------------------
 
         pub fn encode_game_planes(&self) -> (Vec<f32>, usize, usize, usize) {
-            encode::encode_game_planes(&self.game)
+            dispatch_game!(&self.inner, g => encode::encode_game_planes(g))
         }
 
         #[staticmethod]
@@ -399,19 +500,18 @@ mod python_bindings {
         }
 
         pub fn decode_action(&self, action: usize) -> Option<PyMove> {
-            // Find the legal move that matches this action
-            let width = self.game.board().width();
-            let height = self.game.board().height();
-
-            for move_ in self.game.legal_moves() {
-                if let Some(encoded) = encode::encode_move(&move_, width, height) {
-                    if encoded == action {
-                        return Some(PyMove { move_ });
+            dispatch_game!(&self.inner, g => {
+                let width = g.board().width();
+                let height = g.board().height();
+                for move_ in g.legal_moves() {
+                    if let Some(encoded) = encode::encode_move(&move_, width, height) {
+                        if encoded == action {
+                            return Some(PyMove { move_ });
+                        }
                     }
                 }
-            }
-
-            None
+                None
+            })
         }
 
         // ---------------------------------------------------------------------
@@ -419,19 +519,25 @@ mod python_bindings {
         // ---------------------------------------------------------------------
 
         pub fn __str__(&self) -> String {
-            self.game.to_string()
+            dispatch_game!(&self.inner, g => g.to_string())
         }
 
         pub fn __repr__(&self) -> String {
-            format!(
-                "Game(width={}, height={}, turn={:?}, over={})",
-                self.game.board().width(),
-                self.game.board().height(),
-                self.game.turn(),
-                self.game.is_over(),
-            )
+            dispatch_game!(&self.inner, g => {
+                format!(
+                    "Game(width={}, height={}, turn={:?}, over={})",
+                    g.board().width(),
+                    g.board().height(),
+                    g.turn(),
+                    g.is_over(),
+                )
+            })
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Non-generic Python types
+    // -----------------------------------------------------------------------
 
     #[pyclass(name = "Move")]
     #[derive(Clone, Debug)]
@@ -481,11 +587,11 @@ mod python_bindings {
                         PieceType::Rook => "r",
                         PieceType::Bishop => "b",
                         PieceType::Knight => "n",
-                        _ => "q", // fallback to queen
+                        _ => "q",
                     };
                     Some(promo_char.to_string())
                 } else {
-                    Some("q".to_string()) // Default to queen if no promotion piece specified
+                    Some("q".to_string())
                 }
             } else {
                 None
