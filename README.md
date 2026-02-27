@@ -1,6 +1,18 @@
 # spooky_chess
 
-Rust and Python library for the game of Chesss.
+Rust and Python library for the game of Chess.
+
+# Rust
+
+```fish
+cargo add spooky_chess
+```
+
+# Python
+
+```fish
+uv add spooky-chess
+```
 
 ## Develop
 
