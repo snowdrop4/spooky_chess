@@ -19,6 +19,7 @@ use pyo3::types::PyType;
 
 #[cfg(feature = "python")]
 #[pymodule(gil_used = false)]
+#[hotpath::measure]
 fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use color::Color;
     use python_bindings::*;
@@ -142,6 +143,7 @@ mod python_bindings {
         inner: BoardInner,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyBoard {
         #[new]
@@ -229,6 +231,7 @@ mod python_bindings {
         inner: GameInner,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyGame {
         #[new]
@@ -545,6 +548,7 @@ mod python_bindings {
         move_: Move,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyMove {
         #[staticmethod]
@@ -655,6 +659,7 @@ mod python_bindings {
         piece: Piece,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyPiece {
         #[new]
@@ -716,6 +721,7 @@ mod python_bindings {
         pos: Position,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyPosition {
         #[new]
@@ -748,6 +754,7 @@ mod python_bindings {
         outcome: GameOutcome,
     }
 
+    #[hotpath::measure_all]
     #[pymethods]
     impl PyGameOutcome {
         pub fn winner(&self) -> Option<i8> {

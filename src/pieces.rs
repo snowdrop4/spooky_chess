@@ -1,5 +1,6 @@
 use crate::color::Color;
 
+#[hotpath::measure_all]
 impl std::fmt::Display for Color {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -26,6 +27,7 @@ pub struct Piece {
     pub color: Color,
 }
 
+#[hotpath::measure_all]
 impl Piece {
     pub fn new(piece_type: PieceType, color: Color) -> Self {
         Piece { piece_type, color }

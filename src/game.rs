@@ -43,12 +43,14 @@ pub struct CastlingRights {
     black_queenside: bool,
 }
 
+#[hotpath::measure_all]
 impl Default for CastlingRights {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[hotpath::measure_all]
 impl CastlingRights {
     pub fn new() -> Self {
         CastlingRights {
@@ -83,6 +85,7 @@ impl CastlingRights {
     }
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> Game<NW> {
     pub fn new(
         width: usize,
@@ -1314,6 +1317,7 @@ impl<const NW: usize> Game<NW> {
 /// Type alias for a standard 8x8 game
 pub type StandardGame = Game<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
 
+#[hotpath::measure_all]
 impl StandardGame {
     pub fn standard() -> Self {
         Self::new(
@@ -1326,6 +1330,7 @@ impl StandardGame {
     }
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> std::fmt::Display for Game<NW> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

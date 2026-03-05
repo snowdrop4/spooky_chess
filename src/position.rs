@@ -6,6 +6,7 @@ pub struct Position {
     pub row: usize,
 }
 
+#[hotpath::measure_all]
 impl Position {
     pub fn new(col: usize, row: usize) -> Self {
         Position { col, row }
@@ -59,6 +60,7 @@ impl Position {
     }
 }
 
+#[hotpath::measure_all]
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_algebraic())

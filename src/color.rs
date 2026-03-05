@@ -5,6 +5,7 @@ pub enum Color {
     Black = -1,
 }
 
+#[hotpath::measure_all]
 impl Color {
     pub fn opposite(&self) -> Color {
         match self {

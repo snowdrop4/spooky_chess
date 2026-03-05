@@ -24,6 +24,7 @@ pub struct Board<const NW: usize> {
     height: usize,
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> PartialEq for Board<NW> {
     fn eq(&self, other: &Self) -> bool {
         self.pawns == other.pawns
@@ -41,6 +42,7 @@ impl<const NW: usize> PartialEq for Board<NW> {
 
 impl<const NW: usize> Eq for Board<NW> {}
 
+#[hotpath::measure_all]
 impl<const NW: usize> Hash for Board<NW> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.pawns.hash(state);
@@ -56,6 +58,7 @@ impl<const NW: usize> Hash for Board<NW> {
     }
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> Board<NW> {
     pub fn new(width: usize, height: usize, fen: &str) -> Result<Self, String> {
         let mut board = Self::empty(width, height);
@@ -310,6 +313,7 @@ impl<const NW: usize> Board<NW> {
     }
 }
 
+#[hotpath::measure_all]
 impl Board<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }> {
     pub fn standard() -> Self {
         Self::new(
@@ -321,12 +325,14 @@ impl Board<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }> {
     }
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> Default for Board<NW> {
     fn default() -> Self {
         Self::empty(STANDARD_COLS, STANDARD_ROWS)
     }
 }
 
+#[hotpath::measure_all]
 impl<const NW: usize> fmt::Display for Board<NW> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for row in (0..self.height).rev() {

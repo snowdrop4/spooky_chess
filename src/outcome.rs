@@ -12,6 +12,7 @@ pub enum GameOutcome {
     Other,
 }
 
+#[hotpath::measure_all]
 impl GameOutcome {
     pub fn winner(&self) -> Option<Color> {
         match self {
@@ -49,6 +50,7 @@ impl GameOutcome {
     }
 }
 
+#[hotpath::measure_all]
 impl fmt::Display for GameOutcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {

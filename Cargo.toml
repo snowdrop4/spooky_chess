@@ -19,19 +19,27 @@ lazy_static = "1.4"
 rand = "0.10.0"
 paste = "1.0"
 num_cpus = "1.16"
-
-[dev-dependencies]
-criterion = { version = "0.8.2", features = ["html_reports"] }
-
-[[bench]]
-name = "benchmarks"
-harness = false
-required-features = ["bench"]
+hotpath = { version = "0.13" }
 
 [features]
 default = []
 python = ["pyo3"]
 bench = []
+hotpath = ["hotpath/hotpath"]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath-mcp = ["hotpath/hotpath-mcp"]
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[[bin]]
+name = "profile"
+path = "src/bin/profile.rs"
+
+[[bench]]
+name = "benchmarks"
+harness = false
+required-features = ["bench"]
 
 [profile.release]
 lto = true

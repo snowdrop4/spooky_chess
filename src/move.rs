@@ -22,6 +22,7 @@ pub struct Move {
     pub promotion: Option<PieceType>,
 }
 
+#[hotpath::measure_all]
 impl Move {
     pub fn from_position(src: Position, dst: Position, flags: MoveFlags) -> Self {
         Move {
@@ -99,6 +100,7 @@ impl Move {
     }
 }
 
+#[hotpath::measure_all]
 impl std::fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_lan())

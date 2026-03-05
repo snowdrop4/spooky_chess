@@ -33,6 +33,7 @@ const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 
 /// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
 /// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
+#[hotpath::measure]
 pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, usize, usize, usize) {
     let width = game.board().width();
     let height = game.board().height();
@@ -121,6 +122,7 @@ pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, us
     (data, num_planes, height, width)
 }
 
+#[hotpath::measure]
 fn fill_constant_plane(data: &mut [f32], plane: usize, value: f32, board_size: usize) {
     let offset = plane * board_size;
     for i in 0..board_size {
@@ -128,6 +130,7 @@ fn fill_constant_plane(data: &mut [f32], plane: usize, value: f32, board_size: u
     }
 }
 
+#[hotpath::measure]
 fn fill_chess_planes<const NW: usize>(
     data: &mut [f32],
     game: &Game<NW>,
@@ -176,6 +179,7 @@ fn fill_chess_planes<const NW: usize>(
 ///   in 8 directions (N, NE, E, SE, S, SW, W, NW) up to max distance
 /// - L-shaped moves for knights, in 8 directions
 /// - Underpromotions (3 directions × 3 piece types, excluding queen)
+#[hotpath::measure]
 pub fn encode_move(move_: &Move, width: usize, height: usize) -> Option<usize> {
     let src = move_.src;
     let dst = move_.dst;
@@ -274,6 +278,7 @@ pub fn encode_move(move_: &Move, width: usize, height: usize) -> Option<usize> {
 
 /// Decode a plane index back to move deltas
 /// Returns (dx, dy, promotion) for the given plane index and board dimensions
+#[hotpath::measure]
 pub fn decode_move_plane(
     plane_idx: usize,
     width: usize,
@@ -357,6 +362,7 @@ pub fn decode_move_plane(
 }
 
 /// Get the total number of move policy planes for a given board dimensions
+#[hotpath::measure]
 pub fn get_move_planes_count(width: usize, height: usize) -> usize {
     let max_distance = width.max(height) - 1;
     let straight_diagonal_planes = NUM_DIRECTIONS * max_distance;
@@ -369,6 +375,7 @@ pub fn get_move_planes_count(width: usize, height: usize) -> usize {
 
 /// Decode a plane index and source position to a Move
 /// Returns the decoded move if valid
+#[hotpath::measure]
 pub fn decode_move_from_plane(
     plane_idx: usize,
     src_col: usize,
