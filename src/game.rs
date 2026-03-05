@@ -226,61 +226,6 @@ impl<const NW: usize> Game<NW> {
         self.board.clear();
     }
 
-    /// Make a move without validating whether it's legal.
-    /// Used for testing moves during legal move generation.
-    fn make_move_without_legality_checking(&mut self, mv: &Move) -> bool {
-        // Validate the move is from a piece
-        let piece = match self.board.get_piece(&mv.src) {
-            Some(p) => p,
-            _ => return false,
-        };
-
-        // Store state for unmake
-        let captured = self.board.get_piece(&mv.dst);
-        let old_castling = self.castling_rights;
-        let old_en_passant = self.en_passant;
-        let old_halfmove = self.halfmove_clock;
-
-        // Make the move on the board
-        self.board.set_piece(&mv.src, None);
-
-        // Handle promotion
-        if mv.flags.contains(MoveFlags::PROMOTION) {
-            let promo_piece = Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color);
-            self.board.set_piece(&mv.dst, Some(promo_piece));
-        } else {
-            self.board.set_piece(&mv.dst, Some(piece));
-        }
-
-        // Update king position if a king moved
-        if piece.piece_type == PieceType::King {
-            match piece.color {
-                Color::White => self.white_king_pos = mv.dst,
-                Color::Black => self.black_king_pos = mv.dst,
-            }
-        }
-
-        // Handle en passant capture
-        if mv.flags.contains(MoveFlags::EN_PASSANT) {
-            let captured_pawn_pos = Position::new(mv.dst.col, mv.src.row);
-            self.board.set_piece(&captured_pawn_pos, None);
-        }
-
-        // Reset en passant square
-        self.en_passant = None;
-
-        // Store move in history for potential unmake
-        self.move_history.push(MoveHistoryEntry {
-            mv: *mv,
-            captured,
-            castling_rights: old_castling,
-            en_passant: old_en_passant,
-            halfmove_clock: old_halfmove,
-        });
-
-        true
-    }
-
     /// Returns: whether the move was successfully made
     pub fn make_move(&mut self, mv: &Move) -> bool {
         // Validate the move is from a piece of the correct color
@@ -506,7 +451,7 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    pub fn is_legal_move(&self, mv: &Move) -> bool {
+    pub fn is_legal_move(&mut self, mv: &Move) -> bool {
         // Basic validation
         if let Some(piece) = self.board.get_piece(&mv.src) {
             if piece.color != self.turn {
@@ -521,7 +466,7 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    pub fn legal_moves(&self) -> Vec<Move> {
+    pub fn legal_moves(&mut self) -> Vec<Move> {
         let mut moves = Vec::new();
 
         for (pos, _piece) in self.board.pieces(self.turn) {
@@ -543,7 +488,7 @@ impl<const NW: usize> Game<NW> {
         moves
     }
 
-    pub fn legal_moves_for_position(&self, src: &Position) -> Vec<Move> {
+    pub fn legal_moves_for_position(&mut self, src: &Position) -> Vec<Move> {
         let mut moves = Vec::new();
 
         if let Some(piece) = self.board.get_piece(src) {
@@ -553,34 +498,61 @@ impl<const NW: usize> Game<NW> {
 
             let pseudo_legal = self.generate_pseudo_legal_moves_for_piece(src, &piece);
 
-            // Filter out moves that leave king in check
+            // Filter out moves that leave king in check using in-place make/unmake
             for mv in pseudo_legal {
-                let mut test_game = self.clone();
-                test_game.board.set_piece(&mv.src, None);
+                let captured = self.board.get_piece(&mv.dst);
 
+                // Make the move on the board
+                self.board.set_piece(&mv.src, None);
                 if mv.flags.contains(MoveFlags::PROMOTION) {
                     let promo_piece =
                         Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color);
-                    test_game.board.set_piece(&mv.dst, Some(promo_piece));
+                    self.board.set_piece(&mv.dst, Some(promo_piece));
                 } else {
-                    test_game.board.set_piece(&mv.dst, Some(piece));
+                    self.board.set_piece(&mv.dst, Some(piece));
                 }
 
-                // Update king position in test game if a king moved
-                if piece.piece_type == PieceType::King {
+                // Update king position if a king moved
+                let old_king_pos = if piece.piece_type == PieceType::King {
+                    let old = match piece.color {
+                        Color::White => self.white_king_pos,
+                        Color::Black => self.black_king_pos,
+                    };
                     match piece.color {
-                        Color::White => test_game.white_king_pos = mv.dst,
-                        Color::Black => test_game.black_king_pos = mv.dst,
+                        Color::White => self.white_king_pos = mv.dst,
+                        Color::Black => self.black_king_pos = mv.dst,
                     }
-                }
+                    Some(old)
+                } else {
+                    None
+                };
 
                 // Handle en passant capture
-                if mv.flags.contains(MoveFlags::EN_PASSANT) {
-                    let captured_pawn_pos = Position::new(mv.dst.col, mv.src.row);
-                    test_game.board.set_piece(&captured_pawn_pos, None);
-                }
+                let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
+                    let ep_pos = Position::new(mv.dst.col, mv.src.row);
+                    let ep_piece = self.board.get_piece(&ep_pos);
+                    self.board.set_piece(&ep_pos, None);
+                    Some((ep_pos, ep_piece))
+                } else {
+                    None
+                };
 
-                if !test_game.is_in_check(self.turn) {
+                let in_check = self.is_in_check(self.turn);
+
+                // Unmake: restore board state
+                if let Some((ep_pos, ep_piece)) = ep_captured {
+                    self.board.set_piece(&ep_pos, ep_piece);
+                }
+                if let Some(old) = old_king_pos {
+                    match piece.color {
+                        Color::White => self.white_king_pos = old,
+                        Color::Black => self.black_king_pos = old,
+                    }
+                }
+                self.board.set_piece(&mv.dst, captured);
+                self.board.set_piece(&mv.src, Some(piece));
+
+                if !in_check {
                     moves.push(mv);
                 }
             }
@@ -1041,15 +1013,15 @@ impl<const NW: usize> Game<NW> {
         self.is_in_check(self.turn)
     }
 
-    pub fn is_checkmate(&self) -> bool {
+    pub fn is_checkmate(&mut self) -> bool {
         self.is_check() && self.legal_moves().is_empty()
     }
 
-    pub fn is_stalemate(&self) -> bool {
+    pub fn is_stalemate(&mut self) -> bool {
         !self.is_check() && self.legal_moves().is_empty()
     }
 
-    pub fn is_over(&self) -> bool {
+    pub fn is_over(&mut self) -> bool {
         self.is_checkmate()
             || self.is_stalemate()
             || self.halfmove_clock >= 150
@@ -1060,7 +1032,7 @@ impl<const NW: usize> Game<NW> {
         self.en_passant
     }
 
-    pub fn has_legal_en_passant(&self) -> bool {
+    pub fn has_legal_en_passant(&mut self) -> bool {
         if let Some(ep_square) = self.en_passant {
             // Check if any pawn can legally capture en passant
             // Look for pawns of the current player that can attack the en passant square
@@ -1073,19 +1045,22 @@ impl<const NW: usize> Game<NW> {
                     let pawn_pos = Position::new(pawn_col as usize, pawn_row);
                     if let Some(piece) = self.board.get_piece(&pawn_pos) {
                         if piece.piece_type == PieceType::Pawn && piece.color == self.turn {
-                            // Found a pawn that can potentially capture
-                            // Create the en passant move and check if it's legal
-                            let ep_move = Move::from_position(
-                                pawn_pos,
-                                ep_square,
-                                MoveFlags::CAPTURE | MoveFlags::EN_PASSANT,
-                            );
+                            // Test in-place: apply ep capture, check, then undo
+                            let captured_pawn_pos = Position::new(ep_square.col, pawn_pos.row);
+                            let captured_pawn = self.board.get_piece(&captured_pawn_pos);
 
-                            // Test if this move would leave our king in check
-                            let mut test_game = self.clone();
-                            if test_game.make_move_without_legality_checking(&ep_move)
-                                && !test_game.is_in_check(self.turn)
-                            {
+                            self.board.set_piece(&pawn_pos, None);
+                            self.board.set_piece(&ep_square, Some(piece));
+                            self.board.set_piece(&captured_pawn_pos, None);
+
+                            let in_check = self.is_in_check(self.turn);
+
+                            // Restore
+                            self.board.set_piece(&captured_pawn_pos, captured_pawn);
+                            self.board.set_piece(&ep_square, None);
+                            self.board.set_piece(&pawn_pos, Some(piece));
+
+                            if !in_check {
                                 return true;
                             }
                         }
@@ -1145,7 +1120,7 @@ impl<const NW: usize> Game<NW> {
         })
     }
 
-    pub fn outcome(&self) -> Option<GameOutcome> {
+    pub fn outcome(&mut self) -> Option<GameOutcome> {
         if !self.is_over() {
             return None;
         }
@@ -1259,7 +1234,7 @@ impl<const NW: usize> Game<NW> {
         first_color.is_some()
     }
 
-    pub fn to_fen(&self) -> String {
+    pub fn to_fen(&mut self) -> String {
         let mut fen = self.board.to_fen();
 
         // Turn
@@ -1335,10 +1310,8 @@ impl<const NW: usize> std::fmt::Display for Game<NW> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Game(current_player: {}, is_over: {}, outcome: {:?})\n{}",
+            "Game(current_player: {})\n{}",
             self.turn(),
-            self.is_over(),
-            self.outcome(),
             self.board
         )
     }
@@ -1362,7 +1335,7 @@ mod tests {
 
     #[test]
     fn test_standard_game_initial_position() {
-        let game = StdGame::standard();
+        let mut game = StdGame::standard();
         let fen = game.to_fen();
         assert_eq!(
             fen,
@@ -1434,7 +1407,7 @@ mod tests {
     fn test_standard_game_fen_parsing_valid_en_passant() {
         // Test with a valid en passant scenario
         let valid_ep_fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
-        let game = StdGame::new(8, 8, valid_ep_fen, true).expect("Failed to parse FEN");
+        let mut game = StdGame::new(8, 8, valid_ep_fen, true).expect("Failed to parse FEN");
 
         assert_eq!(game.to_fen(), valid_ep_fen);
         assert_eq!(game.turn(), Color::White);
@@ -1445,7 +1418,7 @@ mod tests {
     #[test]
     fn test_standard_game_fen_parsing_invalid_en_passant() {
         let invalid_ep_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-        let game = StdGame::new(8, 8, invalid_ep_fen, true).expect("Failed to parse FEN");
+        let mut game = StdGame::new(8, 8, invalid_ep_fen, true).expect("Failed to parse FEN");
 
         // Note: en passant square e3 is ignored because there's no enemy pawn that can capture
         assert_eq!(
@@ -1483,7 +1456,7 @@ mod tests {
         // Create custom FENs for different board sizes
         let fen_6x6 = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1";
 
-        let game: Game<{ nw_for_board(6, 6) }> =
+        let mut game: Game<{ nw_for_board(6, 6) }> =
             Game::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
         assert_eq!(game.board().width(), 6);
         assert_eq!(game.board().height(), 6);
@@ -1595,7 +1568,7 @@ mod tests {
     fn test_standard_game_outcome_stalemate() {
         // White king on a8, black queen on b6, black king on c7
         let fen = "K7/8/1q6/8/8/8/8/2k5 w - - 0 1";
-        let game = StdGame::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
+        let mut game = StdGame::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
 
         assert!(
             !game.is_check(),

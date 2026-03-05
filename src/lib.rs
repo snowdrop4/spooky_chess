@@ -299,12 +299,12 @@ mod python_bindings {
             dispatch_game_mut!(&mut self.inner, g => g.unmake_move())
         }
 
-        pub fn is_legal_move(&self, move_: PyMove) -> bool {
-            dispatch_game!(&self.inner, g => g.is_legal_move(&move_.move_))
+        pub fn is_legal_move(&mut self, move_: PyMove) -> bool {
+            dispatch_game_mut!(&mut self.inner, g => g.is_legal_move(&move_.move_))
         }
 
-        pub fn legal_moves(&self) -> Vec<PyMove> {
-            dispatch_game!(&self.inner, g => {
+        pub fn legal_moves(&mut self) -> Vec<PyMove> {
+            dispatch_game_mut!(&mut self.inner, g => {
                 g.legal_moves()
                     .into_iter()
                     .map(|m| PyMove { move_: m })
@@ -321,9 +321,9 @@ mod python_bindings {
             })
         }
 
-        pub fn legal_moves_for_position(&self, col: usize, row: usize) -> Vec<PyMove> {
+        pub fn legal_moves_for_position(&mut self, col: usize, row: usize) -> Vec<PyMove> {
             let pos = Position::new(col, row);
-            dispatch_game!(&self.inner, g => {
+            dispatch_game_mut!(&mut self.inner, g => {
                 g.legal_moves_for_position(&pos)
                     .into_iter()
                     .map(|m| PyMove { move_: m })
@@ -344,16 +344,16 @@ mod python_bindings {
             dispatch_game!(&self.inner, g => g.is_check())
         }
 
-        pub fn is_checkmate(&self) -> bool {
-            dispatch_game!(&self.inner, g => g.is_checkmate())
+        pub fn is_checkmate(&mut self) -> bool {
+            dispatch_game_mut!(&mut self.inner, g => g.is_checkmate())
         }
 
-        pub fn is_stalemate(&self) -> bool {
-            dispatch_game!(&self.inner, g => g.is_stalemate())
+        pub fn is_stalemate(&mut self) -> bool {
+            dispatch_game_mut!(&mut self.inner, g => g.is_stalemate())
         }
 
-        pub fn is_over(&self) -> bool {
-            dispatch_game!(&self.inner, g => g.is_over())
+        pub fn is_over(&mut self) -> bool {
+            dispatch_game_mut!(&mut self.inner, g => g.is_over())
         }
 
         // ---------------------------------------------------------------------
@@ -378,8 +378,8 @@ mod python_bindings {
             dispatch_game_mut!(&mut self.inner, g => g.set_piece(&pos, piece.map(|p| p.piece)))
         }
 
-        pub fn legal_action_indices(&self) -> Vec<usize> {
-            dispatch_game!(&self.inner, g => {
+        pub fn legal_action_indices(&mut self) -> Vec<usize> {
+            dispatch_game_mut!(&mut self.inner, g => {
                 let width = g.board().width();
                 let height = g.board().height();
                 g.legal_moves()
@@ -418,16 +418,16 @@ mod python_bindings {
             encode::TOTAL_INPUT_PLANES
         }
 
-        pub fn reward_absolute(&self) -> f32 {
-            dispatch_game!(&self.inner, g => {
+        pub fn reward_absolute(&mut self) -> f32 {
+            dispatch_game_mut!(&mut self.inner, g => {
                 g.outcome()
                     .map(|o| o.encode_winner_absolute())
                     .unwrap_or(0.0)
             })
         }
 
-        pub fn reward_from_perspective(&self, perspective: i8) -> f32 {
-            dispatch_game!(&self.inner, g => {
+        pub fn reward_from_perspective(&mut self, perspective: i8) -> f32 {
+            dispatch_game_mut!(&mut self.inner, g => {
                 g.outcome()
                     .map(|o| {
                         o.encode_winner_from_perspective(
@@ -452,20 +452,20 @@ mod python_bindings {
             dispatch_game!(&self.inner, g => g.is_insufficient_material())
         }
 
-        pub fn has_legal_en_passant(&self) -> bool {
-            dispatch_game!(&self.inner, g => g.has_legal_en_passant())
+        pub fn has_legal_en_passant(&mut self) -> bool {
+            dispatch_game_mut!(&mut self.inner, g => g.has_legal_en_passant())
         }
 
         pub fn en_passant_square(&self) -> Option<PyPosition> {
             dispatch_game!(&self.inner, g => g.en_passant_square().map(|pos| PyPosition { pos }))
         }
 
-        pub fn outcome(&self) -> Option<PyGameOutcome> {
-            dispatch_game!(&self.inner, g => g.outcome().map(|outcome| PyGameOutcome { outcome }))
+        pub fn outcome(&mut self) -> Option<PyGameOutcome> {
+            dispatch_game_mut!(&mut self.inner, g => g.outcome().map(|outcome| PyGameOutcome { outcome }))
         }
 
-        pub fn to_fen(&self) -> String {
-            dispatch_game!(&self.inner, g => g.to_fen())
+        pub fn to_fen(&mut self) -> String {
+            dispatch_game_mut!(&mut self.inner, g => g.to_fen())
         }
 
         pub fn clone(&self) -> PyGame {
@@ -502,8 +502,8 @@ mod python_bindings {
             encode::get_move_planes_count(width, height)
         }
 
-        pub fn decode_action(&self, action: usize) -> Option<PyMove> {
-            dispatch_game!(&self.inner, g => {
+        pub fn decode_action(&mut self, action: usize) -> Option<PyMove> {
+            dispatch_game_mut!(&mut self.inner, g => {
                 let width = g.board().width();
                 let height = g.board().height();
                 for move_ in g.legal_moves() {
@@ -525,8 +525,8 @@ mod python_bindings {
             dispatch_game!(&self.inner, g => g.to_string())
         }
 
-        pub fn __repr__(&self) -> String {
-            dispatch_game!(&self.inner, g => {
+        pub fn __repr__(&mut self) -> String {
+            dispatch_game_mut!(&mut self.inner, g => {
                 format!(
                     "Game(width={}, height={}, turn={:?}, over={})",
                     g.board().width(),

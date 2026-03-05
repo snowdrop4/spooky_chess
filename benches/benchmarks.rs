@@ -27,12 +27,12 @@ fn setup_midgame() -> StandardGame {
 // ---------------------------------------------------------------------------
 
 fn bench_legal_moves(c: &mut Criterion) {
-    let game = setup_midgame();
+    let mut game = setup_midgame();
     c.bench_function("legal_moves", |b| b.iter(|| black_box(game.legal_moves())));
 }
 
 fn bench_make_move(c: &mut Criterion) {
-    let game = setup_midgame();
+    let mut game = setup_midgame();
     let moves = game.legal_moves();
     let mv = *moves.first().unwrap();
     c.bench_function("make_move", |b| {
@@ -47,7 +47,7 @@ fn bench_make_move(c: &mut Criterion) {
 }
 
 fn bench_make_unmake(c: &mut Criterion) {
-    let game = setup_midgame();
+    let mut game = setup_midgame();
     let moves = game.legal_moves();
     let mv = *moves.first().unwrap();
     c.bench_function("make_unmake", |b| {
@@ -74,7 +74,7 @@ fn bench_encode_game_planes(c: &mut Criterion) {
 }
 
 fn bench_outcome(c: &mut Criterion) {
-    let game = setup_midgame();
+    let mut game = setup_midgame();
     c.bench_function("outcome", |b| b.iter(|| black_box(game.outcome())));
 }
 
