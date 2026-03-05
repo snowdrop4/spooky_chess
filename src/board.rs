@@ -365,6 +365,7 @@ impl<const NW: usize> fmt::Display for Board<NW> {
         }
 
         write!(f, "   ")?;
+
         for col in 0..self.width {
             if col < 26 {
                 write!(f, "{} ", (b'a' + col as u8) as char)?;
@@ -372,6 +373,7 @@ impl<const NW: usize> fmt::Display for Board<NW> {
                 write!(f, "{} ", col)?;
             }
         }
+
         Ok(())
     }
 }

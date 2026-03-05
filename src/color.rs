@@ -7,6 +7,7 @@ pub enum Color {
 
 #[hotpath::measure_all]
 impl Color {
+    #[inline]
     pub fn opposite(&self) -> Color {
         match self {
             Color::White => Color::Black,
@@ -14,6 +15,7 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn from_int(i: i8) -> Option<Color> {
         match i {
             1 => Some(Color::White),

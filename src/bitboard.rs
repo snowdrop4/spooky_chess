@@ -1,6 +1,7 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
 /// Compute the number of u64 words needed for a board of given dimensions.
+#[inline]
 pub const fn nw_for_board(width: u8, height: u8) -> usize {
     ((width as u16 * height as u16) as usize).div_ceil(64)
 }
@@ -300,7 +301,9 @@ impl<const NW: usize> BoardGeometry<NW> {
     pub fn new(width: u8, height: u8) -> Self {
         debug_assert!((1..=32).contains(&width));
         debug_assert!((1..=32).contains(&height));
+
         let area = width as u16 * height as u16;
+
         assert!(
             NW == (area as usize).div_ceil(64),
             "NW={} does not match board {}x{} (need {})",
@@ -309,6 +312,7 @@ impl<const NW: usize> BoardGeometry<NW> {
             height,
             (area as usize).div_ceil(64)
         );
+
         let w = width as usize;
         let h = height as usize;
 
