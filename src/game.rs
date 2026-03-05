@@ -1118,73 +1118,51 @@ impl<const NW: usize> Game<NW> {
     }
 
     pub fn outcome(&mut self) -> Option<GameOutcome> {
-        if !self.is_over() {
+        if self.halfmove_clock >= 150 {
+            return Some(GameOutcome::FiftyMoveRule);
+        }
+
+        if self.is_insufficient_material() {
+            return Some(GameOutcome::InsufficientMaterial);
+        }
+
+        if self.has_any_legal_move() {
             return None;
         }
 
-        if self.is_checkmate() {
-            // The current player is checkmated, so the other player wins
+        // No legal moves: checkmate or stalemate
+        if self.is_check() {
             if self.turn == Color::White {
                 Some(GameOutcome::BlackWin)
             } else {
                 Some(GameOutcome::WhiteWin)
             }
-        } else if self.is_stalemate() {
-            Some(GameOutcome::Stalemate)
-        } else if self.is_insufficient_material() {
-            Some(GameOutcome::InsufficientMaterial)
-        } else if self.halfmove_clock >= 100 {
-            Some(GameOutcome::FiftyMoveRule)
         } else {
-            // Other draw conditions (could be extended to include threefold repetition)
-            Some(GameOutcome::Other)
+            Some(GameOutcome::Stalemate)
         }
     }
 
     pub fn is_insufficient_material(&self) -> bool {
-        // Count specific piece types for both sides
-        let mut white_pawns = 0;
-        let mut white_queens = 0;
-        let mut white_rooks = 0;
-        let mut white_bishops = 0;
-        let mut white_knights = 0;
+        let white = self.board.color_bb(Color::White);
+        let black = self.board.color_bb(Color::Black);
 
-        for (_, piece) in self.board.pieces(Color::White) {
-            match piece.piece_type {
-                PieceType::Pawn => white_pawns += 1,
-                PieceType::Queen => white_queens += 1,
-                PieceType::Rook => white_rooks += 1,
-                PieceType::Bishop => white_bishops += 1,
-                PieceType::Knight => white_knights += 1,
-                PieceType::King => {}
-            }
-        }
-
-        let mut black_pawns = 0;
-        let mut black_queens = 0;
-        let mut black_rooks = 0;
-        let mut black_bishops = 0;
-        let mut black_knights = 0;
-
-        for (_, piece) in self.board.pieces(Color::Black) {
-            match piece.piece_type {
-                PieceType::Pawn => black_pawns += 1,
-                PieceType::Queen => black_queens += 1,
-                PieceType::Rook => black_rooks += 1,
-                PieceType::Bishop => black_bishops += 1,
-                PieceType::Knight => black_knights += 1,
-                PieceType::King => {}
-            }
-        }
+        let pawns = self.board.piece_type_bb(PieceType::Pawn);
+        let rooks = self.board.piece_type_bb(PieceType::Rook);
+        let queens = self.board.piece_type_bb(PieceType::Queen);
+        let bishops = self.board.piece_type_bb(PieceType::Bishop);
+        let knights = self.board.piece_type_bb(PieceType::Knight);
 
         // If either side has pawns, queens, or rooks, there's sufficient material
-        if white_pawns + white_queens + white_rooks > 0
-            || black_pawns + black_queens + black_rooks > 0
-        {
+        if !(pawns | rooks | queens).is_empty() {
             return false;
         }
 
         // Now we only have kings, bishops, and knights
+        let white_bishops = (bishops & white).count();
+        let white_knights = (knights & white).count();
+        let black_bishops = (bishops & black).count();
+        let black_knights = (knights & black).count();
+
         let white_minor_pieces = white_bishops + white_knights;
         let black_minor_pieces = black_bishops + black_knights;
 
