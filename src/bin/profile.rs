@@ -17,7 +17,7 @@ fn play_random_game() -> spooky_chess::outcome::GameOutcome {
     }
 }
 
-#[hotpath::main]
+#[hotpath::main(limit = 0)]
 fn main() {
     let num_games = 50;
     let mut white_wins = 0;
