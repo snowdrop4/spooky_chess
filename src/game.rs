@@ -508,7 +508,8 @@ impl<const NW: usize> Game<NW> {
                 return moves;
             }
 
-            let pseudo_legal = self.generate_pseudo_legal_moves_for_piece(src, &piece);
+            let mut pseudo_legal = Vec::new();
+            self.generate_pseudo_legal_moves_for_piece_into(src, &piece, &mut pseudo_legal);
 
             // Filter out moves that leave king in check using in-place make/unmake
             for mv in pseudo_legal {
@@ -595,18 +596,39 @@ impl<const NW: usize> Game<NW> {
     }
 
     fn generate_pseudo_legal_moves_for_piece(&self, src: &Position, piece: &Piece) -> Vec<Move> {
+        let mut moves = Vec::new();
+        self.generate_pseudo_legal_moves_for_piece_into(src, piece, &mut moves);
+        moves
+    }
+
+    fn generate_pseudo_legal_moves_for_piece_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
         match piece.piece_type {
-            PieceType::Pawn => self.generate_psuedo_legal_pawn_moves(src, piece),
-            PieceType::Knight => self.generate_psuedo_legal_knight_moves(src, piece),
-            PieceType::Bishop => self.generate_psuedo_legal_bishop_moves(src, piece),
-            PieceType::Rook => self.generate_psuedo_legal_rook_moves(src, piece),
-            PieceType::Queen => self.generate_psuedo_legal_queen_moves(src, piece),
-            PieceType::King => self.generate_psuedo_legal_king_moves(src, piece),
+            PieceType::Pawn => self.generate_psuedo_legal_pawn_moves_into(src, piece, moves),
+            PieceType::Knight => self.generate_psuedo_legal_knight_moves_into(src, piece, moves),
+            PieceType::Bishop => self.generate_psuedo_legal_bishop_moves_into(src, piece, moves),
+            PieceType::Rook => self.generate_psuedo_legal_rook_moves_into(src, piece, moves),
+            PieceType::Queen => self.generate_psuedo_legal_queen_moves_into(src, piece, moves),
+            PieceType::King => self.generate_psuedo_legal_king_moves_into(src, piece, moves),
         }
     }
 
     fn generate_psuedo_legal_pawn_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
         let mut moves = Vec::new();
+        self.generate_psuedo_legal_pawn_moves_into(src, piece, &mut moves);
+        moves
+    }
+
+    fn generate_psuedo_legal_pawn_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
         let occupied = self.board.occupied();
         let own_color = self.board.color_bb(piece.color);
         let width = self.board.width();
@@ -720,12 +742,20 @@ impl<const NW: usize> Game<NW> {
                 }
             }
         }
-
-        moves
     }
 
     fn generate_psuedo_legal_knight_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
         let mut moves = Vec::new();
+        self.generate_psuedo_legal_knight_moves_into(src, piece, &mut moves);
+        moves
+    }
+
+    fn generate_psuedo_legal_knight_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
         let own_color = self.board.color_bb(piece.color);
         let occupied = self.board.occupied();
         let width = self.board.width();
@@ -762,8 +792,6 @@ impl<const NW: usize> Game<NW> {
                 }
             }
         }
-
-        moves
     }
 
     fn generate_sliding_moves(
@@ -773,6 +801,17 @@ impl<const NW: usize> Game<NW> {
         directions: &[(i32, i32)],
     ) -> Vec<Move> {
         let mut moves = Vec::new();
+        self.generate_sliding_moves_into(src, piece, directions, &mut moves);
+        moves
+    }
+
+    fn generate_sliding_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        directions: &[(i32, i32)],
+        moves: &mut Vec<Move>,
+    ) {
         let occupied = self.board.occupied();
         let own_color = self.board.color_bb(piece.color);
         let width = self.board.width();
@@ -806,8 +845,6 @@ impl<const NW: usize> Game<NW> {
                 distance += 1;
             }
         }
-
-        moves
     }
 
     fn generate_psuedo_legal_bishop_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
@@ -815,9 +852,29 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves(src, piece, &directions)
     }
 
+    fn generate_psuedo_legal_bishop_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
+        let directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
+        self.generate_sliding_moves_into(src, piece, &directions, moves)
+    }
+
     fn generate_psuedo_legal_rook_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
         let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
         self.generate_sliding_moves(src, piece, &directions)
+    }
+
+    fn generate_psuedo_legal_rook_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
+        let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+        self.generate_sliding_moves_into(src, piece, &directions, moves)
     }
 
     fn generate_psuedo_legal_queen_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
@@ -834,8 +891,37 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves(src, piece, &directions)
     }
 
+    fn generate_psuedo_legal_queen_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
+        let directions = [
+            (0, 1),
+            (0, -1),
+            (1, 0),
+            (-1, 0),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ];
+        self.generate_sliding_moves_into(src, piece, &directions, moves)
+    }
+
     fn generate_psuedo_legal_king_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
         let mut moves = Vec::new();
+        self.generate_psuedo_legal_king_moves_into(src, piece, &mut moves);
+        moves
+    }
+
+    fn generate_psuedo_legal_king_moves_into(
+        &self,
+        src: &Position,
+        piece: &Piece,
+        moves: &mut Vec<Move>,
+    ) {
         let own_color = self.board.color_bb(piece.color);
         let occupied = self.board.occupied();
         let width = self.board.width();
@@ -924,8 +1010,6 @@ impl<const NW: usize> Game<NW> {
                 }
             }
         }
-
-        moves
     }
 
     fn is_square_attacked(&self, square: &Position, by_color: Color) -> bool {
@@ -1062,9 +1146,11 @@ impl<const NW: usize> Game<NW> {
     }
 
     fn has_any_legal_move(&mut self) -> bool {
+        let mut pseudo_legal = Vec::new();
         for (pos, piece) in self.board.pieces(self.turn) {
-            let pseudo_legal = self.generate_pseudo_legal_moves_for_piece(&pos, &piece);
-            for mv in pseudo_legal {
+            pseudo_legal.clear();
+            self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut pseudo_legal);
+            for mv in pseudo_legal.iter() {
                 let captured = self.board.get_piece(&mv.dst);
 
                 // Make the move
