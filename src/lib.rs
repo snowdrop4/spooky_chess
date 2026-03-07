@@ -391,7 +391,35 @@ mod python_bindings {
             })
         }
 
-        pub fn action_size(&self) -> usize {
+        // ---------------------------------------------------------------------
+        // Encoding/decoding
+        // ---------------------------------------------------------------------
+
+        pub fn encode_game_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
+            dispatch_game!(&mut self.inner, g => encode::encode_game_planes(g))
+        }
+
+        #[staticmethod]
+        pub fn get_move_planes_count(width: usize, height: usize) -> usize {
+            encode::get_move_planes_count(width, height)
+        }
+
+        pub fn decode_action(&mut self, action: usize) -> Option<PyMove> {
+            dispatch_game!(&mut self.inner, g => {
+                let width = g.board().width();
+                let height = g.board().height();
+                for move_ in g.legal_moves() {
+                    if let Some(encoded) = encode::encode_move(&move_, width, height) {
+                        if encoded == action {
+                            return Some(PyMove { move_ });
+                        }
+                    }
+                }
+                None
+            })
+        }
+
+        pub fn total_actions(&self) -> usize {
             dispatch_game!(&self.inner, g => {
                 encode::get_move_planes_count(g.board().width(), g.board().height())
             })
@@ -473,34 +501,6 @@ mod python_bindings {
                 }
                 g.halfmove_clock().hash(&mut hasher);
                 hasher.finish()
-            })
-        }
-
-        // ---------------------------------------------------------------------
-        // Encoding/decoding
-        // ---------------------------------------------------------------------
-
-        pub fn encode_game_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
-            dispatch_game!(&mut self.inner, g => encode::encode_game_planes(g))
-        }
-
-        #[staticmethod]
-        pub fn get_move_planes_count(width: usize, height: usize) -> usize {
-            encode::get_move_planes_count(width, height)
-        }
-
-        pub fn decode_action(&mut self, action: usize) -> Option<PyMove> {
-            dispatch_game!(&mut self.inner, g => {
-                let width = g.board().width();
-                let height = g.board().height();
-                for move_ in g.legal_moves() {
-                    if let Some(encoded) = encode::encode_move(&move_, width, height) {
-                        if encoded == action {
-                            return Some(PyMove { move_ });
-                        }
-                    }
-                }
-                None
             })
         }
 
