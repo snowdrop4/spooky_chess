@@ -444,15 +444,16 @@ impl<const NW: usize> Game<NW> {
         }
 
         // Rook moves or captures
-        let size = self.board.width();
+        let last_col = self.board.width() - 1;
+        let last_row = self.board.height() - 1;
         if piece.piece_type == PieceType::Rook {
             if mv.src.row == 0 && mv.src.col == 0 {
                 self.castling_rights.white_queenside = false;
-            } else if mv.src.row == 0 && mv.src.col == size - 1 {
+            } else if mv.src.row == 0 && mv.src.col == last_col {
                 self.castling_rights.white_kingside = false;
-            } else if mv.src.row == size - 1 && mv.src.col == 0 {
+            } else if mv.src.row == last_row && mv.src.col == 0 {
                 self.castling_rights.black_queenside = false;
-            } else if mv.src.row == size - 1 && mv.src.col == size - 1 {
+            } else if mv.src.row == last_row && mv.src.col == last_col {
                 self.castling_rights.black_kingside = false;
             }
         }
@@ -460,11 +461,11 @@ impl<const NW: usize> Game<NW> {
         // Rook captures
         if mv.dst.row == 0 && mv.dst.col == 0 {
             self.castling_rights.white_queenside = false;
-        } else if mv.dst.row == 0 && mv.dst.col == size - 1 {
+        } else if mv.dst.row == 0 && mv.dst.col == last_col {
             self.castling_rights.white_kingside = false;
-        } else if mv.dst.row == size - 1 && mv.dst.col == 0 {
+        } else if mv.dst.row == last_row && mv.dst.col == 0 {
             self.castling_rights.black_queenside = false;
-        } else if mv.dst.row == size - 1 && mv.dst.col == size - 1 {
+        } else if mv.dst.row == last_row && mv.dst.col == last_col {
             self.castling_rights.black_kingside = false;
         }
     }
