@@ -119,7 +119,7 @@ impl<const NW: usize> Game<NW> {
         moves
     }
 
-    pub fn psuedo_legal_moves(&self) -> Vec<Move> {
+    pub fn pseudo_legal_moves(&self) -> Vec<Move> {
         let mut moves = Vec::new();
 
         for (pos, piece) in self.board.pieces_iter(self.turn) {
@@ -157,16 +157,16 @@ impl<const NW: usize> Game<NW> {
         moves: &mut Vec<Move>,
     ) {
         match piece.piece_type {
-            PieceType::Pawn => self.generate_psuedo_legal_pawn_moves_into(src, piece, moves),
-            PieceType::Knight => self.generate_psuedo_legal_knight_moves_into(src, piece, moves),
-            PieceType::Bishop => self.generate_psuedo_legal_bishop_moves_into(src, piece, moves),
-            PieceType::Rook => self.generate_psuedo_legal_rook_moves_into(src, piece, moves),
-            PieceType::Queen => self.generate_psuedo_legal_queen_moves_into(src, piece, moves),
-            PieceType::King => self.generate_psuedo_legal_king_moves_into(src, piece, moves),
+            PieceType::Pawn => self.generate_pseudo_legal_pawn_moves_into(src, piece, moves),
+            PieceType::Knight => self.generate_pseudo_legal_knight_moves_into(src, piece, moves),
+            PieceType::Bishop => self.generate_pseudo_legal_bishop_moves_into(src, piece, moves),
+            PieceType::Rook => self.generate_pseudo_legal_rook_moves_into(src, piece, moves),
+            PieceType::Queen => self.generate_pseudo_legal_queen_moves_into(src, piece, moves),
+            PieceType::King => self.generate_pseudo_legal_king_moves_into(src, piece, moves),
         }
     }
 
-    fn generate_psuedo_legal_pawn_moves_into(
+    fn generate_pseudo_legal_pawn_moves_into(
         &self,
         src: &Position,
         piece: &Piece,
@@ -287,7 +287,7 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    fn generate_psuedo_legal_knight_moves_into(
+    fn generate_pseudo_legal_knight_moves_into(
         &self,
         src: &Position,
         piece: &Piece,
@@ -373,7 +373,7 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    fn generate_psuedo_legal_bishop_moves_into(
+    fn generate_pseudo_legal_bishop_moves_into(
         &self,
         src: &Position,
         piece: &Piece,
@@ -383,7 +383,7 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves_into(src, piece, &directions, moves)
     }
 
-    fn generate_psuedo_legal_rook_moves_into(
+    fn generate_pseudo_legal_rook_moves_into(
         &self,
         src: &Position,
         piece: &Piece,
@@ -393,7 +393,7 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves_into(src, piece, &directions, moves)
     }
 
-    fn generate_psuedo_legal_queen_moves_into(
+    fn generate_pseudo_legal_queen_moves_into(
         &self,
         src: &Position,
         piece: &Piece,
@@ -412,7 +412,7 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves_into(src, piece, &directions, moves)
     }
 
-    fn generate_psuedo_legal_king_moves_into(
+    fn generate_pseudo_legal_king_moves_into(
         &self,
         src: &Position,
         piece: &Piece,

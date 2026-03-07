@@ -298,9 +298,9 @@ mod python_bindings {
             })
         }
 
-        pub fn psuedo_legal_moves(&self) -> Vec<PyMove> {
+        pub fn pseudo_legal_moves(&self) -> Vec<PyMove> {
             dispatch_game!(&self.inner, g => {
-                g.psuedo_legal_moves()
+                g.pseudo_legal_moves()
                     .into_iter()
                     .map(|m| PyMove { move_: m })
                     .collect()
