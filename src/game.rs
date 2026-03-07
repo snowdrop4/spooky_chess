@@ -480,10 +480,74 @@ impl<const NW: usize> Game<NW> {
 
     pub fn legal_moves(&mut self) -> Vec<Move> {
         let mut moves = Vec::new();
+        let mut pseudo_legal = Vec::new();
 
-        for (pos, _piece) in self.board.pieces(self.turn) {
-            let piece_moves = self.legal_moves_for_position(&pos);
-            moves.extend(piece_moves);
+        for (pos, piece) in self.board.pieces(self.turn) {
+            pseudo_legal.clear();
+            self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut pseudo_legal);
+
+            for mv in pseudo_legal.iter() {
+                let captured = self.board.get_piece(&mv.dst);
+
+                // Make the move on the board
+                self.board.remove_piece(&mv.src, &piece);
+                if let Some(ref cap) = captured {
+                    self.board.remove_piece(&mv.dst, cap);
+                }
+                let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
+                    Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
+                } else {
+                    piece
+                };
+                self.board.place_piece(&mv.dst, &placed_piece);
+
+                // Update king position if a king moved
+                let old_king_pos = if piece.piece_type == PieceType::King {
+                    let old = match piece.color {
+                        Color::White => self.white_king_pos,
+                        Color::Black => self.black_king_pos,
+                    };
+                    match piece.color {
+                        Color::White => self.white_king_pos = mv.dst,
+                        Color::Black => self.black_king_pos = mv.dst,
+                    }
+                    Some(old)
+                } else {
+                    None
+                };
+
+                // Handle en passant capture
+                let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
+                    let ep_pos = Position::new(mv.dst.col, mv.src.row);
+                    let ep_piece = Piece::new(PieceType::Pawn, piece.color.opposite());
+                    self.board.remove_piece(&ep_pos, &ep_piece);
+                    Some((ep_pos, ep_piece))
+                } else {
+                    None
+                };
+
+                let in_check = self.is_in_check(self.turn);
+
+                // Unmake: restore board state
+                if let Some((ep_pos, ep_piece)) = ep_captured {
+                    self.board.place_piece(&ep_pos, &ep_piece);
+                }
+                if let Some(old) = old_king_pos {
+                    match piece.color {
+                        Color::White => self.white_king_pos = old,
+                        Color::Black => self.black_king_pos = old,
+                    }
+                }
+                self.board.remove_piece(&mv.dst, &placed_piece);
+                if let Some(ref cap) = captured {
+                    self.board.place_piece(&mv.dst, cap);
+                }
+                self.board.place_piece(&mv.src, &piece);
+
+                if !in_check {
+                    moves.push(*mv);
+                }
+            }
         }
 
         moves
