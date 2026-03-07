@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::outcome::GameOutcome;
-use crate::pieces::{Piece, PieceType};
+use crate::pieces::{Piece, PieceType, KNIGHT_DELTAS};
 use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
 
@@ -35,16 +35,7 @@ impl<const NW: usize> Game<NW> {
         // 2. Knight attacks
         let knights = self.board.piece_type_bb(PieceType::Knight) & enemy;
         if !knights.is_empty() {
-            for (col_off, row_off) in [
-                (-2, -1),
-                (-2, 1),
-                (-1, -2),
-                (-1, 2),
-                (1, -2),
-                (1, 2),
-                (2, -1),
-                (2, 1),
-            ] {
+            for (col_off, row_off) in KNIGHT_DELTAS {
                 let nc = (sq_col + col_off) as usize;
                 let nr = (sq_row + row_off) as usize;
                 if nc < width && nr < height {

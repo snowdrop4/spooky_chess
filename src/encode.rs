@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::game::Game;
-use crate::pieces::PieceType;
+use crate::pieces::{PieceType, KNIGHT_DELTAS};
 use crate::position::Position;
 use crate::r#move::Move;
 
@@ -195,21 +195,10 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
     let dx = dst.col as i32 - src.col as i32;
     let dy = dst.row as i32 - src.row as i32;
 
-    // L-shaped moves for knights
-    let knight_deltas = [
-        (1, 2),
-        (2, 1),
-        (2, -1),
-        (1, -2),
-        (-1, -2),
-        (-2, -1),
-        (-2, 1),
-        (-1, 2),
-    ];
-
     let max_distance = width.max(height) - 1;
 
-    for (i, &(kdx, kdy)) in knight_deltas.iter().enumerate() {
+    // L-shaped moves for knights
+    for (i, &(kdx, kdy)) in KNIGHT_DELTAS.iter().enumerate() {
         if dx == kdx && dy == kdy {
             let knight_planes_start = NUM_DIRECTIONS * max_distance;
             return Some(knight_planes_start + i);
@@ -319,18 +308,7 @@ pub(crate) fn decode_move_plane(
     } else if plane_idx < underpromo_planes_start {
         // L-shaped moves for knights
         let knight_idx = plane_idx - knight_planes_start;
-        let knight_deltas = [
-            (1, 2),
-            (2, 1),
-            (2, -1),
-            (1, -2),
-            (-1, -2),
-            (-2, -1),
-            (-2, 1),
-            (-1, 2),
-        ];
-
-        knight_deltas
+        KNIGHT_DELTAS
             .get(knight_idx)
             .map(|&(dx, dy)| (dx, dy, None))
     } else {

@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::pieces::{Piece, PieceType};
+use crate::pieces::{Piece, PieceType, KNIGHT_DELTAS};
 use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
 
@@ -298,18 +298,7 @@ impl<const NW: usize> Game<NW> {
         let width = self.board.width();
         let height = self.board.height();
 
-        let offsets = [
-            (-2, -1),
-            (-2, 1),
-            (-1, -2),
-            (-1, 2),
-            (1, -2),
-            (1, 2),
-            (2, -1),
-            (2, 1),
-        ];
-
-        for (col_offset, row_offset) in &offsets {
+        for (col_offset, row_offset) in &KNIGHT_DELTAS {
             let dst_col = (src.col as i32 + col_offset) as usize;
             let dst_row = (src.row as i32 + row_offset) as usize;
 
