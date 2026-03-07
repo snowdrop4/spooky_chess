@@ -8,15 +8,19 @@ use super::Game;
 #[hotpath::measure_all]
 impl<const NW: usize> Game<NW> {
     pub fn is_legal_move(&mut self, mv: &Move) -> bool {
-        // Basic validation
-        if let Some(piece) = self.board.get_piece(&mv.src) {
-            if piece.color != self.turn {
-                return false;
-            }
+        let piece = match self.board.get_piece(&mv.src) {
+            Some(p) if p.color == self.turn => p,
+            _ => return false,
+        };
 
-            // Check if move is in legal moves list
-            let legal = self.legal_moves_for_position(&mv.src);
-            legal.iter().any(|m| m.src == mv.src && m.dst == mv.dst)
+        // Generate pseudo-legal moves only for the source piece
+        let mut pseudo_legal = Vec::new();
+        self.generate_pseudo_legal_moves_for_piece_into(&mv.src, &piece, &mut pseudo_legal);
+
+        // Find the matching pseudo-legal move (which has correct flags/promotion)
+        // then check only that one for legality
+        if let Some(m) = pseudo_legal.iter().find(|m| m.src == mv.src && m.dst == mv.dst) {
+            self.is_pseudo_legal_move_legal(m, &piece)
         } else {
             false
         }
