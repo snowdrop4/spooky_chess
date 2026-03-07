@@ -484,6 +484,79 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
+    /// Test whether a pseudo-legal move is actually legal (doesn't leave own king in check).
+    /// Temporarily makes the move on the board, checks, then unmakes.
+    fn is_pseudo_legal_move_legal(&mut self, mv: &Move, piece: &Piece) -> bool {
+        let width = self.board.width();
+        let opponent = piece.color.opposite();
+
+        let captured =
+            if mv.flags.contains(MoveFlags::CAPTURE) && !mv.flags.contains(MoveFlags::EN_PASSANT) {
+                let dst_idx = mv.dst.to_index(width);
+                let pt = self.board.piece_type_at(dst_idx).unwrap();
+                Some(Piece::new(pt, opponent))
+            } else {
+                None
+            };
+
+        // Make the move on the board
+        self.board.remove_piece(&mv.src, piece);
+        if let Some(ref cap) = captured {
+            self.board.remove_piece(&mv.dst, cap);
+        }
+        let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
+            Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
+        } else {
+            *piece
+        };
+        self.board.place_piece(&mv.dst, &placed_piece);
+
+        // Update king position if a king moved
+        let old_king_pos = if piece.piece_type == PieceType::King {
+            let old = match piece.color {
+                Color::White => self.white_king_pos,
+                Color::Black => self.black_king_pos,
+            };
+            match piece.color {
+                Color::White => self.white_king_pos = mv.dst,
+                Color::Black => self.black_king_pos = mv.dst,
+            }
+            Some(old)
+        } else {
+            None
+        };
+
+        // Handle en passant capture
+        let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
+            let ep_pos = Position::new(mv.dst.col, mv.src.row);
+            let ep_piece = Piece::new(PieceType::Pawn, opponent);
+            self.board.remove_piece(&ep_pos, &ep_piece);
+            Some((ep_pos, ep_piece))
+        } else {
+            None
+        };
+
+        let in_check = self.is_in_check(piece.color);
+
+        // Unmake: restore board state
+        if let Some((ep_pos, ep_piece)) = ep_captured {
+            self.board.place_piece(&ep_pos, &ep_piece);
+        }
+        if let Some(old) = old_king_pos {
+            match piece.color {
+                Color::White => self.white_king_pos = old,
+                Color::Black => self.black_king_pos = old,
+            }
+        }
+        self.board.remove_piece(&mv.dst, &placed_piece);
+        if let Some(ref cap) = captured {
+            self.board.place_piece(&mv.dst, cap);
+        }
+        self.board.place_piece(&mv.src, piece);
+
+        !in_check
+    }
+
     pub fn legal_moves(&mut self) -> Vec<Move> {
         let mut moves = Vec::new();
         let mut pseudo_legal = Vec::new();
@@ -498,74 +571,8 @@ impl<const NW: usize> Game<NW> {
             pseudo_legal.clear();
             self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut pseudo_legal);
 
-            let opponent = color.opposite();
             for mv in pseudo_legal.iter() {
-                let captured = if mv.flags.contains(MoveFlags::CAPTURE)
-                    && !mv.flags.contains(MoveFlags::EN_PASSANT)
-                {
-                    let dst_idx = mv.dst.row * width + mv.dst.col;
-                    let pt = self.board.piece_type_at(dst_idx).unwrap();
-                    Some(Piece::new(pt, opponent))
-                } else {
-                    None
-                };
-
-                // Make the move on the board
-                self.board.remove_piece(&mv.src, &piece);
-                if let Some(ref cap) = captured {
-                    self.board.remove_piece(&mv.dst, cap);
-                }
-                let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
-                    Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
-                } else {
-                    piece
-                };
-                self.board.place_piece(&mv.dst, &placed_piece);
-
-                // Update king position if a king moved
-                let old_king_pos = if piece.piece_type == PieceType::King {
-                    let old = match piece.color {
-                        Color::White => self.white_king_pos,
-                        Color::Black => self.black_king_pos,
-                    };
-                    match piece.color {
-                        Color::White => self.white_king_pos = mv.dst,
-                        Color::Black => self.black_king_pos = mv.dst,
-                    }
-                    Some(old)
-                } else {
-                    None
-                };
-
-                // Handle en passant capture
-                let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
-                    let ep_pos = Position::new(mv.dst.col, mv.src.row);
-                    let ep_piece = Piece::new(PieceType::Pawn, opponent);
-                    self.board.remove_piece(&ep_pos, &ep_piece);
-                    Some((ep_pos, ep_piece))
-                } else {
-                    None
-                };
-
-                let in_check = self.is_in_check(self.turn);
-
-                // Unmake: restore board state
-                if let Some((ep_pos, ep_piece)) = ep_captured {
-                    self.board.place_piece(&ep_pos, &ep_piece);
-                }
-                if let Some(old) = old_king_pos {
-                    match piece.color {
-                        Color::White => self.white_king_pos = old,
-                        Color::Black => self.black_king_pos = old,
-                    }
-                }
-                self.board.remove_piece(&mv.dst, &placed_piece);
-                if let Some(ref cap) = captured {
-                    self.board.place_piece(&mv.dst, cap);
-                }
-                self.board.place_piece(&mv.src, &piece);
-
-                if !in_check {
+                if self.is_pseudo_legal_move_legal(mv, &piece) {
                     moves.push(*mv);
                 }
             }
@@ -577,9 +584,8 @@ impl<const NW: usize> Game<NW> {
     pub fn psuedo_legal_moves(&self) -> Vec<Move> {
         let mut moves = Vec::new();
 
-        for (pos, _piece) in self.board.pieces_iter(self.turn) {
-            let piece_moves = self.psuedo_legal_moves_for_position(&pos);
-            moves.extend(piece_moves);
+        for (pos, piece) in self.board.pieces_iter(self.turn) {
+            self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut moves);
         }
 
         moves
@@ -596,104 +602,13 @@ impl<const NW: usize> Game<NW> {
             let mut pseudo_legal = Vec::new();
             self.generate_pseudo_legal_moves_for_piece_into(src, &piece, &mut pseudo_legal);
 
-            let width = self.board.width();
-            let opponent = piece.color.opposite();
-
-            // Filter out moves that leave king in check using in-place make/unmake
             for mv in pseudo_legal {
-                let captured = if mv.flags.contains(MoveFlags::CAPTURE)
-                    && !mv.flags.contains(MoveFlags::EN_PASSANT)
-                {
-                    let dst_idx = mv.dst.row * width + mv.dst.col;
-                    let pt = self.board.piece_type_at(dst_idx).unwrap();
-                    Some(Piece::new(pt, opponent))
-                } else {
-                    None
-                };
-
-                // Make the move on the board
-                self.board.remove_piece(&mv.src, &piece);
-                if let Some(ref cap) = captured {
-                    self.board.remove_piece(&mv.dst, cap);
-                }
-                let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
-                    Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
-                } else {
-                    piece
-                };
-                self.board.place_piece(&mv.dst, &placed_piece);
-
-                // Update king position if a king moved
-                let old_king_pos = if piece.piece_type == PieceType::King {
-                    let old = match piece.color {
-                        Color::White => self.white_king_pos,
-                        Color::Black => self.black_king_pos,
-                    };
-                    match piece.color {
-                        Color::White => self.white_king_pos = mv.dst,
-                        Color::Black => self.black_king_pos = mv.dst,
-                    }
-                    Some(old)
-                } else {
-                    None
-                };
-
-                // Handle en passant capture
-                let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
-                    let ep_pos = Position::new(mv.dst.col, mv.src.row);
-                    let ep_piece = Piece::new(PieceType::Pawn, opponent);
-                    self.board.remove_piece(&ep_pos, &ep_piece);
-                    Some((ep_pos, ep_piece))
-                } else {
-                    None
-                };
-
-                let in_check = self.is_in_check(self.turn);
-
-                // Unmake: restore board state
-                if let Some((ep_pos, ep_piece)) = ep_captured {
-                    self.board.place_piece(&ep_pos, &ep_piece);
-                }
-                if let Some(old) = old_king_pos {
-                    match piece.color {
-                        Color::White => self.white_king_pos = old,
-                        Color::Black => self.black_king_pos = old,
-                    }
-                }
-                self.board.remove_piece(&mv.dst, &placed_piece);
-                if let Some(ref cap) = captured {
-                    self.board.place_piece(&mv.dst, cap);
-                }
-                self.board.place_piece(&mv.src, &piece);
-
-                if !in_check {
+                if self.is_pseudo_legal_move_legal(&mv, &piece) {
                     moves.push(mv);
                 }
             }
         }
 
-        moves
-    }
-
-    fn psuedo_legal_moves_for_position(&self, src: &Position) -> Vec<Move> {
-        let mut moves = Vec::new();
-
-        if let Some(piece) = self.board.get_piece(src) {
-            if piece.color != self.turn {
-                return moves;
-            }
-
-            // Generate pseudo-legal moves without check filtering
-            let pseudo_legal = self.generate_pseudo_legal_moves_for_piece(src, &piece);
-            moves.extend(pseudo_legal);
-        }
-
-        moves
-    }
-
-    fn generate_pseudo_legal_moves_for_piece(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let mut moves = Vec::new();
-        self.generate_pseudo_legal_moves_for_piece_into(src, piece, &mut moves);
         moves
     }
 
@@ -711,12 +626,6 @@ impl<const NW: usize> Game<NW> {
             PieceType::Queen => self.generate_psuedo_legal_queen_moves_into(src, piece, moves),
             PieceType::King => self.generate_psuedo_legal_king_moves_into(src, piece, moves),
         }
-    }
-
-    fn generate_psuedo_legal_pawn_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let mut moves = Vec::new();
-        self.generate_psuedo_legal_pawn_moves_into(src, piece, &mut moves);
-        moves
     }
 
     fn generate_psuedo_legal_pawn_moves_into(
@@ -840,12 +749,6 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    fn generate_psuedo_legal_knight_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let mut moves = Vec::new();
-        self.generate_psuedo_legal_knight_moves_into(src, piece, &mut moves);
-        moves
-    }
-
     fn generate_psuedo_legal_knight_moves_into(
         &self,
         src: &Position,
@@ -890,17 +793,6 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    fn generate_sliding_moves(
-        &self,
-        src: &Position,
-        piece: &Piece,
-        directions: &[(i32, i32)],
-    ) -> Vec<Move> {
-        let mut moves = Vec::new();
-        self.generate_sliding_moves_into(src, piece, directions, &mut moves);
-        moves
-    }
-
     fn generate_sliding_moves_into(
         &self,
         src: &Position,
@@ -943,11 +835,6 @@ impl<const NW: usize> Game<NW> {
         }
     }
 
-    fn generate_psuedo_legal_bishop_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
-        self.generate_sliding_moves(src, piece, &directions)
-    }
-
     fn generate_psuedo_legal_bishop_moves_into(
         &self,
         src: &Position,
@@ -958,11 +845,6 @@ impl<const NW: usize> Game<NW> {
         self.generate_sliding_moves_into(src, piece, &directions, moves)
     }
 
-    fn generate_psuedo_legal_rook_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
-        self.generate_sliding_moves(src, piece, &directions)
-    }
-
     fn generate_psuedo_legal_rook_moves_into(
         &self,
         src: &Position,
@@ -971,20 +853,6 @@ impl<const NW: usize> Game<NW> {
     ) {
         let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
         self.generate_sliding_moves_into(src, piece, &directions, moves)
-    }
-
-    fn generate_psuedo_legal_queen_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let directions = [
-            (0, 1),
-            (0, -1),
-            (1, 0),
-            (-1, 0),
-            (1, 1),
-            (1, -1),
-            (-1, 1),
-            (-1, -1),
-        ];
-        self.generate_sliding_moves(src, piece, &directions)
     }
 
     fn generate_psuedo_legal_queen_moves_into(
@@ -1004,12 +872,6 @@ impl<const NW: usize> Game<NW> {
             (-1, -1),
         ];
         self.generate_sliding_moves_into(src, piece, &directions, moves)
-    }
-
-    fn generate_psuedo_legal_king_moves(&self, src: &Position, piece: &Piece) -> Vec<Move> {
-        let mut moves = Vec::new();
-        self.generate_psuedo_legal_king_moves_into(src, piece, &mut moves);
-        moves
     }
 
     fn generate_psuedo_legal_king_moves_into(
@@ -1252,72 +1114,9 @@ impl<const NW: usize> Game<NW> {
 
             pseudo_legal.clear();
             self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut pseudo_legal);
-            let opponent = color.opposite();
+
             for mv in pseudo_legal.iter() {
-                let captured = if mv.flags.contains(MoveFlags::CAPTURE)
-                    && !mv.flags.contains(MoveFlags::EN_PASSANT)
-                {
-                    let dst_idx = mv.dst.row * width + mv.dst.col;
-                    let pt = self.board.piece_type_at(dst_idx).unwrap();
-                    Some(Piece::new(pt, opponent))
-                } else {
-                    None
-                };
-
-                // Make the move
-                self.board.remove_piece(&mv.src, &piece);
-                if let Some(ref cap) = captured {
-                    self.board.remove_piece(&mv.dst, cap);
-                }
-                let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
-                    Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
-                } else {
-                    piece
-                };
-                self.board.place_piece(&mv.dst, &placed_piece);
-
-                let old_king_pos = if piece.piece_type == PieceType::King {
-                    let old = match piece.color {
-                        Color::White => self.white_king_pos,
-                        Color::Black => self.black_king_pos,
-                    };
-                    match piece.color {
-                        Color::White => self.white_king_pos = mv.dst,
-                        Color::Black => self.black_king_pos = mv.dst,
-                    }
-                    Some(old)
-                } else {
-                    None
-                };
-
-                let ep_captured = if mv.flags.contains(MoveFlags::EN_PASSANT) {
-                    let ep_pos = Position::new(mv.dst.col, mv.src.row);
-                    let ep_piece = Piece::new(PieceType::Pawn, piece.color.opposite());
-                    self.board.remove_piece(&ep_pos, &ep_piece);
-                    Some((ep_pos, ep_piece))
-                } else {
-                    None
-                };
-
-                let in_check = self.is_in_check(self.turn);
-
-                // Unmake
-                if let Some((ep_pos, ep_piece)) = ep_captured {
-                    self.board.place_piece(&ep_pos, &ep_piece);
-                }
-                if let Some(old) = old_king_pos {
-                    match piece.color {
-                        Color::White => self.white_king_pos = old,
-                        Color::Black => self.black_king_pos = old,
-                    }
-                }
-                self.board.remove_piece(&mv.dst, &placed_piece);
-                if let Some(ref cap) = captured {
-                    self.board.place_piece(&mv.dst, cap);
-                }
-                self.board.place_piece(&mv.src, &piece);
-
-                if !in_check {
+                if self.is_pseudo_legal_move_legal(mv, &piece) {
                     return true;
                 }
             }

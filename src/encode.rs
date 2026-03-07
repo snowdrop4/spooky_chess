@@ -125,8 +125,18 @@ pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, us
 #[hotpath::measure]
 fn fill_constant_plane(data: &mut [f32], plane: usize, value: f32, board_size: usize) {
     let offset = plane * board_size;
-    for i in 0..board_size {
-        data[offset + i] = value;
+    data[offset..offset + board_size].fill(value);
+}
+
+#[inline]
+fn piece_type_plane_index(pt: PieceType) -> usize {
+    match pt {
+        PieceType::Pawn => 0,
+        PieceType::Knight => 1,
+        PieceType::Bishop => 2,
+        PieceType::Rook => 3,
+        PieceType::Queen => 4,
+        PieceType::King => 5,
     }
 }
 
@@ -139,37 +149,19 @@ fn fill_chess_planes<const NW: usize>(
     width: usize,
     height: usize,
 ) {
-    let opponent = perspective.opposite();
     let board_size = height * width;
     let base_plane = t * PIECE_PLANES;
 
-    let piece_types = [
-        PieceType::Pawn,
-        PieceType::Knight,
-        PieceType::Bishop,
-        PieceType::Rook,
-        PieceType::Queen,
-        PieceType::King,
-    ];
+    for (pos, piece) in game.board().pieces_iter(perspective) {
+        let plane_idx = piece_type_plane_index(piece.piece_type);
+        let offset = (base_plane + plane_idx) * board_size;
+        data[offset + pos.to_index(width)] = 1.0;
+    }
 
-    for (piece_idx, piece_type) in piece_types.iter().enumerate() {
-        let own_offset = (base_plane + piece_idx) * board_size;
-        let opp_offset = (base_plane + 6 + piece_idx) * board_size;
-        for row in 0..height {
-            for col in 0..width {
-                let pos = Position::new(col, row);
-                if let Some(piece) = game.board().get_piece(&pos) {
-                    let idx = row * width + col;
-                    if piece.piece_type == *piece_type {
-                        if piece.color == perspective {
-                            data[own_offset + idx] = 1.0;
-                        } else if piece.color == opponent {
-                            data[opp_offset + idx] = 1.0;
-                        }
-                    }
-                }
-            }
-        }
+    for (pos, piece) in game.board().pieces_iter(perspective.opposite()) {
+        let plane_idx = piece_type_plane_index(piece.piece_type);
+        let offset = (base_plane + 6 + plane_idx) * board_size;
+        data[offset + pos.to_index(width)] = 1.0;
     }
 }
 
@@ -397,21 +389,18 @@ pub fn decode_move_from_plane(
     let src = Position::new(src_col, src_row);
     let dst = Position::new(dst_col, dst_row);
 
-    let flags = if promo.is_some() {
-        use crate::r#move::MoveFlags;
-        MoveFlags::PROMOTION
-    } else {
-        use crate::r#move::MoveFlags;
-        MoveFlags::empty()
-    };
+    use crate::r#move::MoveFlags;
 
-    let move_ = if let Some(promo_piece) = promo {
-        Move::from_position_with_promotion(src, dst, flags, promo_piece)
+    if let Some(promo_piece) = promo {
+        Some(Move::from_position_with_promotion(
+            src,
+            dst,
+            MoveFlags::PROMOTION,
+            promo_piece,
+        ))
     } else {
-        Move::from_position(src, dst, flags)
-    };
-
-    Some(move_)
+        Some(Move::from_position(src, dst, MoveFlags::empty()))
+    }
 }
 
 #[cfg(test)]
@@ -725,7 +714,9 @@ mod tests {
         use std::thread;
 
         let num_games = 5_000;
-        let num_threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+        let num_threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
         let games_per_thread = num_games / num_threads;
 
         let total_moves_played = Arc::new(AtomicU64::new(0));
