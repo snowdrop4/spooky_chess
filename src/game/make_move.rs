@@ -210,44 +210,21 @@ impl<const NW: usize> Game<NW> {
     }
 
     fn update_castling_rights(&mut self, mv: &Move, piece: &Piece) {
-        // King moves
+        let width = self.board.width();
+        let height = self.board.height();
+
+        // King moves: lose both sides
         if piece.piece_type == PieceType::King {
-            match piece.color {
-                Color::White => {
-                    self.castling_rights.white_kingside = false;
-                    self.castling_rights.white_queenside = false;
-                }
-                Color::Black => {
-                    self.castling_rights.black_kingside = false;
-                    self.castling_rights.black_queenside = false;
-                }
-            }
+            self.castling_rights.set_kingside(piece.color, false);
+            self.castling_rights.set_queenside(piece.color, false);
         }
 
-        // Rook moves or captures
-        let last_col = self.board.width() - 1;
-        let last_row = self.board.height() - 1;
+        // Rook moves from its starting corner
         if piece.piece_type == PieceType::Rook {
-            if mv.src.row == 0 && mv.src.col == 0 {
-                self.castling_rights.white_queenside = false;
-            } else if mv.src.row == 0 && mv.src.col == last_col {
-                self.castling_rights.white_kingside = false;
-            } else if mv.src.row == last_row && mv.src.col == 0 {
-                self.castling_rights.black_queenside = false;
-            } else if mv.src.row == last_row && mv.src.col == last_col {
-                self.castling_rights.black_kingside = false;
-            }
+            self.castling_rights.revoke_at(&mv.src, width, height);
         }
 
-        // Rook captures
-        if mv.dst.row == 0 && mv.dst.col == 0 {
-            self.castling_rights.white_queenside = false;
-        } else if mv.dst.row == 0 && mv.dst.col == last_col {
-            self.castling_rights.white_kingside = false;
-        } else if mv.dst.row == last_row && mv.dst.col == 0 {
-            self.castling_rights.black_queenside = false;
-        } else if mv.dst.row == last_row && mv.dst.col == last_col {
-            self.castling_rights.black_kingside = false;
-        }
+        // Captures on a rook's starting corner
+        self.castling_rights.revoke_at(&mv.dst, width, height);
     }
 }

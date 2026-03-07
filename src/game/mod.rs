@@ -90,6 +90,35 @@ impl CastlingRights {
             Color::Black => self.black_queenside,
         }
     }
+
+    fn set_kingside(&mut self, color: Color, value: bool) {
+        match color {
+            Color::White => self.white_kingside = value,
+            Color::Black => self.black_kingside = value,
+        }
+    }
+
+    fn set_queenside(&mut self, color: Color, value: bool) {
+        match color {
+            Color::White => self.white_queenside = value,
+            Color::Black => self.black_queenside = value,
+        }
+    }
+
+    /// Revoke castling rights associated with a rook at the given corner position.
+    fn revoke_at(&mut self, pos: &Position, width: usize, height: usize) {
+        let last_col = width - 1;
+        let last_row = height - 1;
+        if pos.col == 0 && pos.row == 0 {
+            self.white_queenside = false;
+        } else if pos.col == last_col && pos.row == 0 {
+            self.white_kingside = false;
+        } else if pos.col == 0 && pos.row == last_row {
+            self.black_queenside = false;
+        } else if pos.col == last_col && pos.row == last_row {
+            self.black_kingside = false;
+        }
+    }
 }
 
 #[hotpath::measure_all]

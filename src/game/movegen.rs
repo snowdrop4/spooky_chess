@@ -20,7 +20,10 @@ impl<const NW: usize> Game<NW> {
 
         // Find the matching pseudo-legal move (which has correct flags/promotion)
         // then check only that one for legality
-        if let Some(m) = pseudo_legal.iter().find(|m| m.src == mv.src && m.dst == mv.dst) {
+        if let Some(m) = pseudo_legal
+            .iter()
+            .find(|m| m.src == mv.src && m.dst == mv.dst)
+        {
             self.is_pseudo_legal_move_legal(m, &piece)
         } else {
             false
@@ -433,60 +436,71 @@ impl<const NW: usize> Game<NW> {
             }
         }
 
-        // Castling (only if enabled and for 8x8 boards)
-        if self.castling_enabled && width == 8 && height == 8 && !self.is_in_check(piece.color) {
-            let row = if piece.color == Color::White { 0 } else { 7 };
+        // Castling
+        if self.castling_enabled && width >= 5 && !self.is_in_check(piece.color) {
+            let row = src.row;
+            let opponent = piece.color.opposite();
 
-            // Kingside
-            if ((piece.color == Color::White && self.castling_rights.white_kingside)
-                || (piece.color == Color::Black && self.castling_rights.black_kingside))
-                && !occupied.get(row * 8 + 5)
-                && !occupied.get(row * 8 + 6)
-            {
-                // Check if squares are not attacked
-                let mut can_castle = true;
-
-                for col in 5..=6 {
-                    if self.is_square_attacked(&Position::new(col, row), piece.color.opposite()) {
-                        can_castle = false;
-                        break;
-                    }
-                }
-
-                if can_castle {
-                    moves.push(Move::from_position(
-                        *src,
-                        Position::new(6, row),
-                        MoveFlags::CASTLE,
-                    ));
+            // Kingside: king to col king+2, rook from last col to king+1
+            if self.castling_rights.has_kingside(piece.color) {
+                let king_dst = src.col + 2;
+                let rook_col = width - 1;
+                if king_dst < rook_col {
+                    self.try_generate_castle(src, row, king_dst, rook_col, opponent, moves);
                 }
             }
 
-            // Queenside
-            if ((piece.color == Color::White && self.castling_rights.white_queenside)
-                || (piece.color == Color::Black && self.castling_rights.black_queenside))
-                && !occupied.get(row * 8 + 1)
-                && !occupied.get(row * 8 + 2)
-                && !occupied.get(row * 8 + 3)
-            {
-                // Check if squares are not attacked
-                let mut can_castle = true;
-
-                for col in 2..=4 {
-                    if self.is_square_attacked(&Position::new(col, row), piece.color.opposite()) {
-                        can_castle = false;
-                        break;
-                    }
-                }
-
-                if can_castle {
-                    moves.push(Move::from_position(
-                        *src,
-                        Position::new(2, row),
-                        MoveFlags::CASTLE,
-                    ));
-                }
+            // Queenside: king to col king-2, rook from col 0 to king-1
+            if self.castling_rights.has_queenside(piece.color) && src.col >= 2 {
+                let king_dst = src.col - 2;
+                self.try_generate_castle(src, row, king_dst, 0, opponent, moves);
             }
         }
+    }
+
+    /// Try to generate a castling move. `king_dst` is the column the king lands on,
+    /// `rook_col` is where the rook currently sits. All squares between king and rook
+    /// must be empty, and all squares the king passes through must not be attacked.
+    fn try_generate_castle(
+        &self,
+        king_src: &Position,
+        row: usize,
+        king_dst: usize,
+        rook_col: usize,
+        opponent: Color,
+        moves: &mut Vec<Move>,
+    ) {
+        let width = self.board.width();
+        let occupied = self.board.occupied();
+
+        // All squares between king and rook must be empty
+        let (lo, hi) = if king_src.col < rook_col {
+            (king_src.col + 1, rook_col)
+        } else {
+            (rook_col + 1, king_src.col)
+        };
+        for col in lo..hi {
+            if occupied.get(row * width + col) {
+                return;
+            }
+        }
+
+        // All squares the king passes through (and lands on) must not be attacked
+        let (path_lo, path_hi) = if king_dst > king_src.col {
+            (king_src.col + 1, king_dst + 1)
+        } else {
+            (king_dst, king_src.col)
+        };
+        for col in path_lo..path_hi {
+            if self.is_square_attacked(&Position::new(col, row), opponent) {
+                return;
+            }
+        }
+
+        moves.push(Move::from_position(
+            *king_src,
+            Position::new(king_dst, row),
+            MoveFlags::CASTLE,
+        ));
     }
 }
