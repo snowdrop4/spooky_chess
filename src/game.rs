@@ -9,8 +9,8 @@ use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
 
 #[derive(Clone)]
-struct MoveHistoryEntry {
-    mv: Move,
+pub struct MoveHistoryEntry {
+    pub mv: Move,
     captured: Option<Piece>,
     castling_rights: CastlingRights,
     en_passant: Option<Position>,
@@ -210,8 +210,8 @@ impl<const NW: usize> Game<NW> {
         self.move_history.len()
     }
 
-    pub fn move_history(&self) -> Vec<Move> {
-        self.move_history.iter().map(|e| e.mv).collect()
+    pub fn move_history(&self) -> &[MoveHistoryEntry] {
+        &self.move_history
     }
 
     pub fn castling_enabled(&self) -> bool {

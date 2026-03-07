@@ -48,8 +48,11 @@ pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, us
     let history_len = game.move_count();
     let steps_back = (HISTORY_LENGTH - 1).min(history_len);
 
-    let all_moves = game.move_history();
-    let moves_to_replay: Vec<Move> = all_moves[(history_len - steps_back)..].to_vec();
+    let moves_to_replay: Vec<Move> = game
+        .move_history()[(history_len - steps_back)..]
+        .iter()
+        .map(|e| e.mv)
+        .collect();
 
     // T=0: current position
     fill_chess_planes(&mut data, game, perspective, 0, width, height);
