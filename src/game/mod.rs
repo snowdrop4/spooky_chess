@@ -258,9 +258,6 @@ impl<const NW: usize> Game<NW> {
         &self.castling_rights
     }
 
-    pub fn board_clear(&mut self) {
-        self.board.clear();
-    }
 }
 
 /// Type alias for a standard 8x8 game

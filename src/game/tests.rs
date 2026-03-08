@@ -378,7 +378,7 @@ fn test_8x8_game_castling_rights_rook_move() {
     let mut game = StdGame::standard();
 
     // Clear path for rook movement
-    game.board_clear();
+    game.board.clear();
     game.board.set_piece(
         &Position::new(4, 0),
         Some(Piece::new(PieceType::King, Color::White)),
