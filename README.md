@@ -2,13 +2,28 @@
 
 Rust and Python library for the game of Chess.
 
-# Rust
+# Performance
+
+```
+50000 random game playouts
+  spooky_chess: 13.7757s
+  python-chess: 116.3016s
+  Speedup: 8.44x
+```
+
+# Validity
+
+Identical to python-chess across 5m random game playouts.
+
+# Install
+
+## Rust
 
 ```fish
 cargo add spooky_chess
 ```
 
-# Python
+## Python
 
 ```fish
 uv add spooky-chess
@@ -25,3 +40,8 @@ uv add spooky-chess
 ### Lints
 
 - `fish run_lints.fish`
+
+### Performance
+
+- `fish run_benchmark.fish`
+- `fish run_profile.fish`

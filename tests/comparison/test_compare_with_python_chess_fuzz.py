@@ -98,7 +98,7 @@ def _run_fuzz_batch(num_games: int, start_seed: int) -> dict:
     }
 
 
-def test_fuzz() -> None:
+def test_compare_fuzz() -> None:
     num_games = 5_000
     num_cores = mp.cpu_count()
     games_per_core = num_games // num_cores
@@ -165,7 +165,7 @@ def test_fuzz() -> None:
 
 
 # Sequences found during fuzzing
-def test_specific_move_sequences() -> None:
+def test_compare_specific_move_sequences() -> None:
     test_sequences = [
         [
             "d2d3", "c7c6", "d1d2", "f7f6", "d2g5", "f6f5", "a2a4", "f5f4", "h2h3", "g8h6", "d3d4", "b7b5", "g5g7",

@@ -6,7 +6,7 @@ import spooky_chess
 from tests.comparison.utilities import _compare_game_states
 
 
-def test_initial_position_fen() -> None:
+def test_compare_initial_position_fen() -> None:
     rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
@@ -16,7 +16,7 @@ def test_initial_position_fen() -> None:
     assert rust_fen == python_fen
 
 
-def test_fen_parsing_comparison() -> None:
+def test_compare_fen_parsing() -> None:
     test_fens = [
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
@@ -73,7 +73,7 @@ def test_fen_parsing_comparison() -> None:
         _compare_game_states(rust_game, python_board, move_history)
 
 
-def test_move_making_and_unmaking() -> None:
+def test_compare_move_making_and_unmaking() -> None:
     rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
@@ -98,7 +98,7 @@ def test_move_making_and_unmaking() -> None:
     assert rust_game.to_fen() == initial_fen
 
 
-def test_move_sequence_compatibility() -> None:
+def test_compare_move_sequence() -> None:
     rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
@@ -144,7 +144,7 @@ def test_move_sequence_compatibility() -> None:
         assert rust_game.to_fen() == python_board.fen(), f"FEN mismatch after {move_uci}"
 
 
-def test_castling_compatibility() -> None:
+def test_compare_castling() -> None:
     # Set up position where castling is possible
     castling_fen = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"
 
@@ -168,7 +168,7 @@ def test_castling_compatibility() -> None:
     assert rust_fen == python_fen
 
 
-def test_en_passant_compatibility() -> None:
+def test_compare_en_passant() -> None:
     # Set up position with en passant possible
     en_passant_fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"
 
@@ -187,7 +187,7 @@ def test_en_passant_compatibility() -> None:
     assert len(rust_legal) == len(python_legal)
 
 
-def test_check_detection_compatibility() -> None:
+def test_compare_check_detection() -> None:
     # Position with white in check
     check_positions = [
         "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
@@ -208,7 +208,7 @@ def test_check_detection_compatibility() -> None:
         assert rust_game.is_stalemate() == python_board.is_stalemate(), f"Stalemate detection mismatch for {fen}"
 
 
-def test_move_make_unmake_compatibility() -> None:
+def test_compare_move_make_unmake() -> None:
     rust_game = spooky_chess.Game.standard()
     python_board = chess.Board()
 
@@ -233,7 +233,7 @@ def test_move_make_unmake_compatibility() -> None:
     assert rust_game.to_fen() == original_fen
 
 
-def test_50_move_rule_compatibility() -> None:
+def test_compare_50_move_rule() -> None:
     # Position close to 50-move rule
     fifty_move_fen = "8/8/8/8/8/8/k1K5/8 w - - 98 150"
 
