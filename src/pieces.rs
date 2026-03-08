@@ -13,17 +13,6 @@ pub const KNIGHT_DELTAS: [(i32, i32); 8] = [
     (-1, 2),
 ];
 
-#[hotpath::measure_all]
-impl std::fmt::Display for Color {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Color::White => "White",
-            Color::Black => "Black",
-        };
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PieceType {
     Pawn,

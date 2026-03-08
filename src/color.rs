@@ -24,3 +24,14 @@ impl Color {
         }
     }
 }
+
+#[hotpath::measure_all]
+impl std::fmt::Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Color::White => "White",
+            Color::Black => "Black",
+        };
+        write!(f, "{}", s)
+    }
+}
