@@ -1,5 +1,6 @@
+use crate::bitboard::Bitboard;
 use crate::color::Color;
-use crate::directions::{ALL_DIRS, DIAGONAL, KNIGHT_MOVES, ORTHOGONAL};
+use crate::directions::{ALL_DIRS, DIAGONAL, ORTHOGONAL};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
@@ -304,27 +305,17 @@ impl<const NW: usize> Game<NW> {
         let own_color = self.board.color_bb(piece.color);
         let occupied = self.board.occupied();
         let width = self.board.width();
-        let height = self.board.height();
+        let src_bb = Bitboard::single(src.to_index(width));
+        let attacks = self.geometry.knight_attacks(src_bb).andnot(own_color);
 
-        for (col_offset, row_offset) in &KNIGHT_MOVES {
-            let dst_col = (src.col as i32 + col_offset) as usize;
-            let dst_row = (src.row as i32 + row_offset) as usize;
-
-            if dst_col < width && dst_row < height {
-                let idx = dst_row * width + dst_col;
-
-                if own_color.get(idx) {
-                    continue;
-                }
-
-                let to = Position::new(dst_col, dst_row);
-
-                if occupied.get(idx) {
-                    moves.push(Move::from_position(*src, to, MoveFlags::CAPTURE));
-                } else {
-                    moves.push(Move::from_position(*src, to, MoveFlags::empty()));
-                }
-            }
+        for idx in attacks.iter_ones() {
+            let to = Position::from_index(idx, width);
+            let flags = if occupied.get(idx) {
+                MoveFlags::CAPTURE
+            } else {
+                MoveFlags::empty()
+            };
+            moves.push(Move::from_position(*src, to, flags));
         }
     }
 

@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 
-use crate::bitboard::nw_for_board;
+use crate::bitboard::{nw_for_board, BoardGeometry};
 use crate::board::{Board, STANDARD_COLS, STANDARD_ROWS};
 use crate::color::Color;
 use crate::pieces::Piece;
@@ -27,6 +27,7 @@ pub struct MoveHistoryEntry {
 #[derive(Clone)]
 pub struct Game<const NW: usize> {
     board: Board<NW>,
+    geometry: BoardGeometry<NW>,
     turn: Color,
     move_history: Vec<MoveHistoryEntry>,
 
@@ -192,8 +193,11 @@ impl<const NW: usize> Game<NW> {
             .find_king(Color::Black)
             .ok_or("No black king found in FEN position".to_string())?;
 
+        let geometry = BoardGeometry::new(width as u8, height as u8);
+
         Ok(Game {
             board,
+            geometry,
             turn,
             move_history: Vec::new(),
             castling_rights,

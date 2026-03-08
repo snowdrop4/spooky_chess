@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::directions::{direction_index, KNIGHT_MOVES};
+use crate::directions::{direction_index, KNIGHT_DELTAS};
 use crate::game::Game;
 use crate::pieces::PieceType;
 use crate::r#move::Move;
@@ -20,7 +20,7 @@ pub const TOTAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT
 const NUM_DIRECTIONS: usize = 8;
 
 /// Number of knight move patterns
-const NUM_KNIGHT_MOVES: usize = 8;
+const NUM_KNIGHT_DELTAS: usize = 8;
 
 /// Number of underpromotion directions (left diagonal, straight, right diagonal)
 const NUM_UNDERPROMO_DIRECTIONS: usize = 3;
@@ -198,7 +198,7 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
     let max_distance = width.max(height) - 1;
 
     // L-shaped moves for knights
-    for (i, &(kdx, kdy)) in KNIGHT_MOVES.iter().enumerate() {
+    for (i, &(kdx, kdy)) in KNIGHT_DELTAS.iter().enumerate() {
         if dx == kdx && dy == kdy {
             let knight_planes_start = NUM_DIRECTIONS * max_distance;
             return Some(knight_planes_start + i);
@@ -228,7 +228,7 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
 
             // Store which direction (forward/backward) in the encoding
             let knight_planes_start = NUM_DIRECTIONS * max_distance;
-            let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_MOVES;
+            let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_DELTAS;
             let dir_offset = if dy > 0 {
                 0
             } else {
@@ -275,7 +275,7 @@ pub(crate) fn decode_move_plane(
     let max_distance = width.max(height) - 1;
     let straight_diagonal_planes = NUM_DIRECTIONS * max_distance;
     let knight_planes_start = straight_diagonal_planes;
-    let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_MOVES;
+    let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_DELTAS;
 
     if plane_idx < straight_diagonal_planes {
         // Horizontal/vertical/diagonal moves for all non-knight pieces
@@ -298,7 +298,9 @@ pub(crate) fn decode_move_plane(
     } else if plane_idx < underpromo_planes_start {
         // L-shaped moves for knights
         let knight_idx = plane_idx - knight_planes_start;
-        KNIGHT_MOVES.get(knight_idx).map(|&(dx, dy)| (dx, dy, None))
+        KNIGHT_DELTAS
+            .get(knight_idx)
+            .map(|&(dx, dy)| (dx, dy, None))
     } else {
         // Underpromotion
         let underpromo_idx = plane_idx - underpromo_planes_start;
@@ -341,7 +343,7 @@ pub(crate) fn decode_move_plane(
 pub fn get_move_planes_count(width: usize, height: usize) -> usize {
     let max_distance = width.max(height) - 1;
     let straight_diagonal_planes = NUM_DIRECTIONS * max_distance;
-    let knight_planes = NUM_KNIGHT_MOVES;
+    let knight_planes = NUM_KNIGHT_DELTAS;
     let underpromo_planes =
         NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES * NUM_PROMOTION_ORIENTATIONS;
 

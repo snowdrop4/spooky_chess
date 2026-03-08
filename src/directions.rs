@@ -29,5 +29,15 @@ pub fn direction_index(dx: i32, dy: i32) -> Option<usize> {
     }
 }
 
-// Re-export KNIGHT_DELTAS for convenience
-pub use crate::pieces::KNIGHT_DELTAS as KNIGHT_MOVES;
+/// L-shaped knight move offsets as (col_delta, row_delta).
+/// The ordering is stable and used by the encode module for plane indices.
+pub const KNIGHT_DELTAS: [(i32, i32); 8] = [
+    (1, 2),
+    (2, 1),
+    (2, -1),
+    (1, -2),
+    (-1, -2),
+    (-2, -1),
+    (-2, 1),
+    (-1, 2),
+];

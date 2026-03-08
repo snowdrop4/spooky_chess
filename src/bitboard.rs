@@ -296,10 +296,14 @@ pub struct BoardGeometry<const NW: usize> {
     pub area: u16,
     /// Mask with 1s at all valid board positions (indices 0..area).
     pub board_mask: Bitboard<NW>,
-    /// board_mask minus column 0 (used to prevent left-wrap in right-shift neighbor).
-    pub not_col0: Bitboard<NW>,
-    /// board_mask minus last column (used to prevent right-wrap in left-shift neighbor).
+    /// board_mask minus column 0.
+    pub not_col_first: Bitboard<NW>,
+    /// board_mask minus last column.
     pub not_col_last: Bitboard<NW>,
+    /// board_mask minus columns 0 and 1.
+    pub not_col_first_2: Bitboard<NW>,
+    /// board_mask minus last two columns.
+    pub not_col_last_2: Bitboard<NW>,
 }
 
 #[hotpath::measure_all]
@@ -328,9 +332,9 @@ impl<const NW: usize> BoardGeometry<NW> {
             board_mask.set(i);
         }
 
-        let mut not_col0 = board_mask;
+        let mut not_col_first = board_mask;
         for row in 0..h {
-            not_col0.clear(row * w); // column 0
+            not_col_first.clear(row * w); // column 0
         }
 
         let mut not_col_last = board_mask;
@@ -338,13 +342,29 @@ impl<const NW: usize> BoardGeometry<NW> {
             not_col_last.clear(row * w + w - 1); // last column
         }
 
+        let mut not_col_first_2 = not_col_first;
+        if w >= 2 {
+            for row in 0..h {
+                not_col_first_2.clear(row * w + 1); // column 1
+            }
+        }
+
+        let mut not_col_last_2 = not_col_last;
+        if w >= 2 {
+            for row in 0..h {
+                not_col_last_2.clear(row * w + w - 2); // second-to-last column
+            }
+        }
+
         BoardGeometry {
             width,
             height,
             area,
             board_mask,
-            not_col0,
+            not_col_first,
             not_col_last,
+            not_col_first_2,
+            not_col_last_2,
         }
     }
 
@@ -355,7 +375,7 @@ impl<const NW: usize> BoardGeometry<NW> {
 
         // right: col+1 = shift left by 1. A bit at col=w-1 wraps to col=0 of next row,
         // so mask off col-0 positions in the result.
-        let right = bb.shift_left(1) & self.not_col0;
+        let right = bb.shift_left(1) & self.not_col_first;
         // left: col-1 = shift right by 1. A bit at col=0 wraps to col=w-1 of previous row,
         // so mask off last-column positions in the result.
         let left = bb.shift_right(1) & self.not_col_last;
@@ -366,6 +386,32 @@ impl<const NW: usize> BoardGeometry<NW> {
 
         // Combine all four directions, then mask to valid positions
         (right | left | down | up) & self.board_mask
+    }
+
+    /// Compute all knight attack squares from a source bitboard.
+    #[inline]
+    pub fn knight_attacks(&self, src: Bitboard<NW>) -> Bitboard<NW> {
+        let w = self.width as usize;
+
+        // +1 col, +2 rows (shift left by 2w+1, mask not_col_last)
+        let a = src.shift_left(2 * w + 1) & self.not_col_first;
+        // +2 col, +1 row (shift left by w+2, mask not_col_last_2)
+        let b = src.shift_left(w + 2) & self.not_col_first_2;
+        // -1 col, +2 rows (shift left by 2w-1, mask not_col_first)
+        let c = src.shift_left(2 * w - 1) & self.not_col_last;
+        // -2 col, +1 row (shift left by w-2, mask not_col_first_2)
+        let d = src.shift_left(w - 2) & self.not_col_last_2;
+
+        // +1 col, -2 rows (shift right by 2w-1, mask not_col_last)
+        let e = src.shift_right(2 * w - 1) & self.not_col_first;
+        // +2 col, -1 row (shift right by w-2, mask not_col_last_2)
+        let f = src.shift_right(w - 2) & self.not_col_first_2;
+        // -1 col, -2 rows (shift right by 2w+1, mask not_col_first)
+        let g = src.shift_right(2 * w + 1) & self.not_col_last;
+        // -2 col, -1 row (shift right by w+2, mask not_col_first_2)
+        let h = src.shift_right(w + 2) & self.not_col_last_2;
+
+        (a | b | c | d | e | f | g | h) & self.board_mask
     }
 
     /// Flood-fill from `seed` through `mask`. Returns the connected component
@@ -515,8 +561,8 @@ mod tests {
 
         // Column 0 positions: 0, 9, 18, 27, ...
         for row in 0..9 {
-            assert!(!geo.not_col0.get(row * 9));
-            assert!(geo.not_col0.get(row * 9 + 1));
+            assert!(!geo.not_col_first.get(row * 9));
+            assert!(geo.not_col_first.get(row * 9 + 1));
         }
 
         // Last column positions: 8, 17, 26, ...

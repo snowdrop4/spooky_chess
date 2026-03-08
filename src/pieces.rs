@@ -1,18 +1,5 @@
 use crate::color::Color;
 
-/// L-shaped knight move offsets as (col_delta, row_delta).
-/// The ordering is stable and used by the encode module for plane indices.
-pub const KNIGHT_DELTAS: [(i32, i32); 8] = [
-    (1, 2),
-    (2, 1),
-    (2, -1),
-    (1, -2),
-    (-1, -2),
-    (-2, -1),
-    (-2, 1),
-    (-1, 2),
-];
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PieceType {
     Pawn,

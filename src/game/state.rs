@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::directions::{DIAGONAL, KNIGHT_MOVES, ORTHOGONAL};
+use crate::directions::{DIAGONAL, KNIGHT_DELTAS, ORTHOGONAL};
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
@@ -36,7 +36,7 @@ impl<const NW: usize> Game<NW> {
         // 2. Knight attacks
         let knights = self.board.piece_type_bb(PieceType::Knight) & enemy;
         if !knights.is_empty() {
-            for (col_off, row_off) in KNIGHT_MOVES {
+            for (col_off, row_off) in KNIGHT_DELTAS {
                 let nc = (sq_col + col_off) as usize;
                 let nr = (sq_row + row_off) as usize;
                 if nc < width && nr < height {
@@ -241,7 +241,9 @@ impl<const NW: usize> Game<NW> {
     pub fn move_from_lan(&self, lan: &str) -> Result<Move, String> {
         let base_move = Move::from_lan(lan, self.board.width(), self.board.height())?;
 
-        let piece = self.board.get_piece(&base_move.src)
+        let piece = self
+            .board
+            .get_piece(&base_move.src)
             .ok_or_else(|| "No piece at source square".to_string())?;
 
         let flags = base_move.flags | self.infer_move_flags(&base_move.src, &base_move.dst, &piece);
