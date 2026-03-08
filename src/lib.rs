@@ -9,6 +9,7 @@ pub mod encode;
 pub mod game;
 pub mod r#move;
 pub mod outcome;
+pub mod pgn;
 pub mod pieces;
 pub mod position;
 
@@ -33,6 +34,8 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPiece>()?;
     m.add_class::<PyPosition>()?;
     m.add_class::<PyGameOutcome>()?;
+    m.add_class::<python_bindings::PyPgnGame>()?;
+    m.add_function(wrap_pyfunction!(python_bindings::py_parse_pgn, m)?)?;
     m.add("WHITE", Color::White as i8)?;
     m.add("BLACK", Color::Black as i8)?;
     m.add("TOTAL_INPUT_PLANES", encode::TOTAL_INPUT_PLANES)?;
@@ -45,14 +48,14 @@ mod python_bindings {
     use crate::board::Board;
     use crate::color::Color;
     use crate::game::Game;
+    use crate::r#move::{Move, MoveFlags};
     use crate::outcome::GameOutcome;
     use crate::pieces::{Piece, PieceType};
     use crate::position::Position;
-    use crate::r#move::{Move, MoveFlags};
 
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Enum dispatch via paste! for Game<W, H> and Board<W, H>
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     /// Generates the cartesian product of W and H ranges, then invokes $mac with all (W, H) pairs.
     macro_rules! cartesian_dispatch {
@@ -541,9 +544,9 @@ mod python_bindings {
         }
     }
 
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Non-generic Python types
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     #[pyclass(name = "Move")]
     #[derive(Clone, Debug)]
@@ -663,7 +666,7 @@ mod python_bindings {
                     return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                         "Invalid color: must be 1 (White) or -1 (Black), got {}",
                         color
-                    )))
+                    )));
                 }
             };
 
@@ -765,4 +768,67 @@ mod python_bindings {
             self.outcome == other.outcome
         }
     }
-} // end python_bindings module
+
+    // -------------------------------------------------------------------------
+    // PGN bindings
+    // -------------------------------------------------------------------------
+
+    #[pyclass(name = "PgnGame")]
+    pub struct PyPgnGame {
+        inner: crate::pgn::PgnGame,
+    }
+
+    #[pymethods]
+    impl PyPgnGame {
+        pub fn headers(&self) -> Vec<(String, String)> {
+            self.inner.headers.pairs.clone()
+        }
+
+        pub fn header(&self, key: &str) -> Option<String> {
+            self.inner.headers.get(key).map(|s| s.to_string())
+        }
+
+        pub fn white(&self) -> Option<String> {
+            self.inner.headers.white().map(|s| s.to_string())
+        }
+
+        pub fn black(&self) -> Option<String> {
+            self.inner.headers.black().map(|s| s.to_string())
+        }
+
+        pub fn result(&self) -> String {
+            self.inner.result.to_string()
+        }
+
+        pub fn moves(&self) -> Vec<PyMove> {
+            self.inner
+                .moves
+                .iter()
+                .map(|m| PyMove { move_: *m })
+                .collect()
+        }
+
+        pub fn game(&self) -> PyGame {
+            PyGame {
+                inner: GameInner::W8H8(self.inner.final_game.clone()),
+            }
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!(
+                "PgnGame({} vs {}, {}, {} moves)",
+                self.inner.headers.white().unwrap_or("?"),
+                self.inner.headers.black().unwrap_or("?"),
+                self.inner.result,
+                self.inner.moves.len(),
+            )
+        }
+    }
+
+    #[pyfunction(name = "parse_pgn")]
+    pub fn py_parse_pgn(pgn: &str) -> PyResult<Vec<PyPgnGame>> {
+        crate::pgn::parse_pgn(pgn)
+            .map(|games| games.into_iter().map(|g| PyPgnGame { inner: g }).collect())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+}

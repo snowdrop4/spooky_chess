@@ -1,0 +1,8 @@
+[Event "Test"]
+[Site "Test"]
+[Date "2024.01.01"]
+[White "Player1"]
+[Black "Player2"]
+[Result "1-0"]
+
+1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0

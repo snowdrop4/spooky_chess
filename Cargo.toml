@@ -1,7 +1,7 @@
 [package]
 name = "spooky_chess"
 version = "0.6.0"
-edition = "2021"
+edition = "2024"
 description = "Chess board game engine"
 license = "MIT"
 repository = "https://github.com/snowdrop4/spooky-chess"
@@ -18,6 +18,8 @@ arrayvec = "0.7"
 rand = "0.10.0"
 paste = "1.0"
 hotpath = { version = "0.13" }
+tree-sitter = { version = "0.25" }
+tree-sitter-pgn = { git = "https://github.com/rolandwalker/tree-sitter-pgn", rev = "9f8e1a9" }
 
 [features]
 default = []
