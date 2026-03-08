@@ -318,9 +318,26 @@ mod python_bindings {
             })
         }
 
+        pub fn move_to_lan(&mut self, move_: PyMove) -> String {
+            dispatch_game!(&mut self.inner, g => g.move_to_lan(&move_.move_))
+        }
+
         pub fn move_from_lan(&self, lan: &str) -> PyResult<PyMove> {
             dispatch_game!(&self.inner, g => {
                 match g.move_from_lan(lan) {
+                    Ok(move_) => Ok(PyMove { move_ }),
+                    Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
+                }
+            })
+        }
+
+        pub fn move_to_san(&mut self, move_: PyMove) -> String {
+            dispatch_game!(&mut self.inner, g => g.move_to_san(&move_.move_))
+        }
+
+        pub fn move_from_san(&mut self, san: &str) -> PyResult<PyMove> {
+            dispatch_game!(&mut self.inner, g => {
+                match g.move_from_san(san) {
                     Ok(move_) => Ok(PyMove { move_ }),
                     Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
                 }

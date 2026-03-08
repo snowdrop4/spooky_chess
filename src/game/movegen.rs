@@ -198,8 +198,18 @@ impl<const NW: usize> Game<NW> {
         for idx in push.iter_ones() {
             let dst = Position::from_index(idx, width);
             if src.row == promo_row {
-                for pt in &[PieceType::Queen, PieceType::Rook, PieceType::Bishop, PieceType::Knight] {
-                    moves.push(Move::from_position_with_promotion(*src, dst, MoveFlags::PROMOTION, *pt));
+                for pt in &[
+                    PieceType::Queen,
+                    PieceType::Rook,
+                    PieceType::Bishop,
+                    PieceType::Knight,
+                ] {
+                    moves.push(Move::from_position_with_promotion(
+                        *src,
+                        dst,
+                        MoveFlags::PROMOTION,
+                        *pt,
+                    ));
                 }
             } else {
                 moves.push(Move::from_position(*src, dst, MoveFlags::empty()));
@@ -221,8 +231,18 @@ impl<const NW: usize> Game<NW> {
         for idx in captures.iter_ones() {
             let dst = Position::from_index(idx, width);
             if src.row == promo_row {
-                for pt in &[PieceType::Queen, PieceType::Rook, PieceType::Bishop, PieceType::Knight] {
-                    moves.push(Move::from_position_with_promotion(*src, dst, MoveFlags::CAPTURE | MoveFlags::PROMOTION, *pt));
+                for pt in &[
+                    PieceType::Queen,
+                    PieceType::Rook,
+                    PieceType::Bishop,
+                    PieceType::Knight,
+                ] {
+                    moves.push(Move::from_position_with_promotion(
+                        *src,
+                        dst,
+                        MoveFlags::CAPTURE | MoveFlags::PROMOTION,
+                        *pt,
+                    ));
                 }
             } else {
                 moves.push(Move::from_position(*src, dst, MoveFlags::CAPTURE));
@@ -233,7 +253,11 @@ impl<const NW: usize> Game<NW> {
         if let Some(ep) = self.en_passant {
             let ep_bb = Bitboard::single(ep.to_index(width));
             if !(attacks & ep_bb).is_empty() {
-                moves.push(Move::from_position(*src, ep, MoveFlags::CAPTURE | MoveFlags::EN_PASSANT));
+                moves.push(Move::from_position(
+                    *src,
+                    ep,
+                    MoveFlags::CAPTURE | MoveFlags::EN_PASSANT,
+                ));
             }
         }
     }

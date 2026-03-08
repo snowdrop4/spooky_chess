@@ -13,7 +13,16 @@ mod movegen;
 mod state;
 
 #[cfg(test)]
-mod tests;
+mod tests_6x6;
+
+#[cfg(test)]
+mod tests_8x8;
+
+#[cfg(test)]
+mod tests_10x10;
+
+#[cfg(test)]
+mod tests_san;
 
 #[derive(Clone)]
 pub struct MoveHistoryEntry {

@@ -224,6 +224,216 @@ impl<const NW: usize> Game<NW> {
         })
     }
 
+    pub fn move_to_lan(&self, mv: &Move) -> String {
+        mv.to_lan()
+    }
+
+    pub fn move_to_san(&mut self, mv: &Move) -> String {
+        let mut san = String::new();
+
+        // Castling
+        if mv.flags.contains(MoveFlags::CASTLE) {
+            if mv.dst.col > mv.src.col {
+                san.push_str("O-O");
+            } else {
+                san.push_str("O-O-O");
+            }
+        } else {
+            let piece = self
+                .board
+                .get_piece(&mv.src)
+                .expect("No piece at source square for SAN conversion");
+
+            if piece.piece_type != PieceType::Pawn {
+                san.push(piece.piece_type.to_san_char());
+
+                // Disambiguation: find other pieces of same type that can reach same destination
+                let legal = self.legal_moves();
+                let ambiguous: Vec<&Move> = legal
+                    .iter()
+                    .filter(|m| {
+                        m.src != mv.src
+                            && m.dst == mv.dst
+                            && self
+                                .board
+                                .get_piece(&m.src)
+                                .map(|p| p.piece_type == piece.piece_type)
+                                .unwrap_or(false)
+                    })
+                    .collect();
+
+                if !ambiguous.is_empty() {
+                    let same_file = ambiguous.iter().any(|m| m.src.col == mv.src.col);
+                    let same_rank = ambiguous.iter().any(|m| m.src.row == mv.src.row);
+
+                    if !same_file {
+                        san.push((b'a' + mv.src.col as u8) as char);
+                    } else if !same_rank {
+                        san.push_str(&(mv.src.row + 1).to_string());
+                    } else {
+                        san.push((b'a' + mv.src.col as u8) as char);
+                        san.push_str(&(mv.src.row + 1).to_string());
+                    }
+                }
+            } else if mv.flags.contains(MoveFlags::CAPTURE) {
+                // Pawn captures: prefix with source file
+                san.push((b'a' + mv.src.col as u8) as char);
+            }
+
+            if mv.flags.contains(MoveFlags::CAPTURE) {
+                san.push('x');
+            }
+
+            san.push_str(&mv.dst.to_algebraic());
+
+            if let Some(promo) = mv.promotion {
+                san.push('=');
+                san.push(promo.to_san_char());
+            }
+        }
+
+        // Check/checkmate suffix
+        self.make_move_unchecked(mv);
+        if self.is_in_check(self.turn) {
+            if !self.has_any_legal_move() {
+                san.push('#');
+            } else {
+                san.push('+');
+            }
+        }
+        self.unmake_move();
+
+        san
+    }
+
+    pub fn move_from_san(&mut self, san: &str) -> Result<Move, String> {
+        // Strip check/mate suffixes
+        let san = san.trim_end_matches(['+', '#']);
+
+        if san.is_empty() {
+            return Err("Empty SAN string".to_string());
+        }
+
+        let legal = self.legal_moves();
+
+        // Castling (accept both O and 0)
+        if san == "O-O" || san == "0-0" {
+            return legal
+                .into_iter()
+                .find(|m| m.flags.contains(MoveFlags::CASTLE) && m.dst.col > m.src.col)
+                .ok_or_else(|| "Kingside castling not available".to_string());
+        }
+        if san == "O-O-O" || san == "0-0-0" {
+            return legal
+                .into_iter()
+                .find(|m| m.flags.contains(MoveFlags::CASTLE) && m.dst.col < m.src.col)
+                .ok_or_else(|| "Queenside castling not available".to_string());
+        }
+
+        let chars: Vec<char> = san.chars().collect();
+        let mut idx = 0;
+
+        // Piece type
+        let piece_type = if idx < chars.len() && chars[idx].is_ascii_uppercase() {
+            if let Some(pt) = PieceType::from_san_char(chars[idx]) {
+                idx += 1;
+                pt
+            } else {
+                return Err(format!("Invalid piece character: {}", chars[idx]));
+            }
+        } else {
+            PieceType::Pawn
+        };
+
+        // Parse the remaining: optional disambiguation, optional 'x', destination, optional '=P'
+        // We need to find the destination square, which is the last 2 chars before optional promotion
+        let mut promo_type: Option<PieceType> = None;
+        let mut end = chars.len();
+
+        // Check for promotion suffix: =Q, =R, =B, =N
+        if end >= 2 && chars[end - 2] == '=' {
+            promo_type = PieceType::from_san_char(chars[end - 1]);
+            if promo_type.is_none() {
+                return Err(format!("Invalid promotion piece: {}", chars[end - 1]));
+            }
+            end -= 2;
+        }
+
+        // Last 2 chars before promotion are the destination square
+        if end < idx + 2 {
+            return Err("SAN too short to contain destination square".to_string());
+        }
+        let dst_file = chars[end - 2];
+        let dst_rank = chars[end - 1];
+        if !dst_file.is_ascii_lowercase() || !dst_rank.is_ascii_digit() {
+            return Err(format!(
+                "Invalid destination square: {}{}",
+                dst_file, dst_rank
+            ));
+        }
+        let dst = Position::from_algebraic(&format!("{}{}", dst_file, dst_rank))?;
+        let disambig = &chars[idx..end - 2];
+
+        // Parse disambiguation (skip 'x' if present)
+        let mut file_hint: Option<usize> = None;
+        let mut rank_hint: Option<usize> = None;
+        for &c in disambig {
+            if c == 'x' {
+                continue;
+            }
+            if c.is_ascii_lowercase() {
+                file_hint = Some((c as u8 - b'a') as usize);
+            } else if c.is_ascii_digit() {
+                rank_hint = Some((c as u8 - b'1') as usize);
+            }
+        }
+
+        // Filter legal moves
+        let candidates: Vec<Move> = legal
+            .into_iter()
+            .filter(|m| {
+                if m.dst != dst {
+                    return false;
+                }
+                let p = match self.board.get_piece(&m.src) {
+                    Some(p) => p,
+                    None => return false,
+                };
+                if p.piece_type != piece_type {
+                    return false;
+                }
+                if let Some(f) = file_hint {
+                    if m.src.col != f {
+                        return false;
+                    }
+                }
+                if let Some(r) = rank_hint {
+                    if m.src.row != r {
+                        return false;
+                    }
+                }
+                if let Some(pt) = promo_type {
+                    if m.promotion != Some(pt) {
+                        return false;
+                    }
+                } else if m.promotion.is_some() {
+                    return false;
+                }
+                true
+            })
+            .collect();
+
+        match candidates.len() {
+            0 => Err(format!("No legal move matches SAN: {}", san)),
+            1 => Ok(candidates.into_iter().next().unwrap()),
+            _ => Err(format!(
+                "Ambiguous SAN: {} matches {} moves",
+                san,
+                candidates.len()
+            )),
+        }
+    }
+
     pub fn outcome(&mut self) -> Option<GameOutcome> {
         if self.halfmove_clock >= 150 {
             return Some(GameOutcome::FiftyMoveRule);

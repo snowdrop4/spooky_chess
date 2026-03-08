@@ -33,6 +33,28 @@ impl PieceType {
             _ => None,
         }
     }
+
+    pub fn to_san_char(self) -> char {
+        match self {
+            PieceType::Pawn => 'P',
+            PieceType::Knight => 'N',
+            PieceType::Bishop => 'B',
+            PieceType::Rook => 'R',
+            PieceType::Queen => 'Q',
+            PieceType::King => 'K',
+        }
+    }
+
+    pub fn from_san_char(c: char) -> Option<Self> {
+        match c {
+            'N' => Some(PieceType::Knight),
+            'B' => Some(PieceType::Bishop),
+            'R' => Some(PieceType::Rook),
+            'Q' => Some(PieceType::Queen),
+            'K' => Some(PieceType::King),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

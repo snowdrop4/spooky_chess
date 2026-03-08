@@ -5,71 +5,7 @@ import time
 import chess
 
 import spooky_chess
-
-
-def _compare_game_states(rust_game: spooky_chess.Game, python_board: chess.Board, move_history: list[str]) -> None:
-    # Compare FEN
-    rust_fen = rust_game.to_fen()
-    python_fen = python_board.fen()
-    assert rust_fen == python_fen, f"FEN mismatch after moves {move_history}\nRust: {rust_fen}\nPython: {python_fen}"
-
-    # Compare check status
-    rust_check = rust_game.is_check()
-    python_check = python_board.is_check()
-    assert rust_check == python_check, (
-        f"Check status mismatch after moves {move_history}\nRust: {rust_check}, Python: {python_check}"
-    )
-
-    # Compare checkmate status
-    rust_checkmate = rust_game.is_checkmate()
-    python_checkmate = python_board.is_checkmate()
-    assert rust_checkmate == python_checkmate, (
-        f"Checkmate status mismatch after moves {move_history}\nRust: {rust_checkmate}, Python: {python_checkmate}"
-    )
-
-    # Compare stalemate status
-    rust_stalemate = rust_game.is_stalemate()
-    python_stalemate = python_board.is_stalemate()
-    assert rust_stalemate == python_stalemate, (
-        f"Stalemate status mismatch after moves {move_history}\nRust: {rust_stalemate}, Python: {python_stalemate}"
-    )
-
-    # Compare game over status
-    rust_game_over = rust_game.is_over()
-    python_game_over = python_board.is_game_over()
-    assert rust_game_over == python_game_over, (
-        f"Game over status mismatch after moves {move_history}\nRust: {rust_game_over}, Python: {python_game_over}"
-    )
-
-    # Compare turn
-    rust_turn = rust_game.turn()
-    python_turn = python_board.turn
-    expected_rust_turn = spooky_chess.WHITE if python_turn else spooky_chess.BLACK
-    assert rust_turn == expected_rust_turn, (
-        f"Turn mismatch after moves {move_history}\nRust: {rust_turn}, Expected: {expected_rust_turn}"
-    )
-
-    # Compare move counts
-    assert rust_game.fullmove_number() == python_board.fullmove_number, (
-        f"Fullmove number mismatch after moves {move_history}"
-    )
-    assert rust_game.halfmove_clock() == python_board.halfmove_clock, (
-        f"Halfmove clock mismatch after moves {move_history}"
-    )
-
-    # Compare legal moves
-    rust_moves_uci: set[str] = {move.to_lan() for move in rust_game.legal_moves()}
-    python_moves_uci: set[str] = {move.uci() for move in python_board.legal_moves}
-
-    # Check if the same moves are legal
-    rust_only = rust_moves_uci - python_moves_uci
-    python_only = python_moves_uci - rust_moves_uci
-
-    assert rust_only == set(), f"Rust has extra moves after {move_history}: {rust_only}"
-    assert python_only == set(), f"Python has extra moves after {move_history}: {python_only}"
-    assert len(rust_moves_uci) == len(python_moves_uci), (
-        f"Legal moves count mismatch after moves {move_history}\nRust: {len(rust_moves_uci)}, Python: {len(python_moves_uci)}"
-    )
+from tests.comparison.utilities import _compare_game_states
 
 
 def _play_random_game(max_moves: int = 200, seed: int | None = None) -> tuple[int, list[str]]:
@@ -324,43 +260,3 @@ def test_specific_move_sequences() -> None:
             python_board.push(python_move)
 
             _compare_game_states(rust_game, python_board, sequence[: sequence.index(move_uci) + 1])
-
-
-def test_edge_case_positions() -> None:
-    edge_case_fens = [
-        # Positions with en passant
-        "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3",
-        "rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPP2PPP/RNBQKBNR b KQkq e3 0 2",
-        # Positions with castling rights partially lost
-        "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
-        "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R b KQkq - 0 1",
-        # Position close to promotion
-        "8/P6k/8/8/8/8/6p1/6K1 w - - 0 1",
-        "8/P6k/8/8/8/8/6p1/6K1 b - - 0 1",
-    ]
-
-    for fen in edge_case_fens:
-        rust_game = spooky_chess.Game.standard()
-        python_board = chess.Board(fen)
-        rust_game = spooky_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
-
-        # Play a few random moves from this position
-        move_history = []
-        for _ in range(min(10, 200)):  # Play up to 10 moves or until game over
-            if rust_game.is_over():
-                break
-
-            _compare_game_states(rust_game, python_board, move_history)
-
-            python_moves = list(python_board.legal_moves)
-            if not python_moves:
-                break
-
-            python_move = random.choice(python_moves)
-            rust_move = rust_game.move_from_lan(python_move.uci())
-
-            assert rust_game.make_move(rust_move), f"Failed to make move {python_move.uci()} from position {fen}"
-            python_board.push(python_move)
-            move_history.append(python_move.uci())
-
-        _compare_game_states(rust_game, python_board, move_history)

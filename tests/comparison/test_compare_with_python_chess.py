@@ -1,6 +1,9 @@
+import random
+
 import chess
 
 import spooky_chess
+from tests.comparison.utilities import _compare_game_states
 
 
 def test_initial_position_fen() -> None:
@@ -19,26 +22,55 @@ def test_fen_parsing_comparison() -> None:
         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        # Positions with en passant
+        "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3",
+        "rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPP2PPP/RNBQKBNR b KQkq e3 0 2",
+        # Positions with castling rights partially lost
+        "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
+        "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R b KQkq - 0 1",
+        # Position close to promotion
+        "8/P6k/8/8/8/8/6p1/6K1 w - - 0 1",
+        "8/P6k/8/8/8/8/6p1/6K1 b - - 0 1",
     ]
 
     for fen in test_fens:
         rust_game = spooky_chess.Game.standard()
-        python_board = chess.Board()
-
+        python_board = chess.Board(fen)
         rust_game = spooky_chess.Game(width=8, height=8, fen=fen, castling_enabled=True)
-        python_board.set_fen(fen)
 
-        # Compare resulting FEN
-        rust_result_fen = rust_game.to_fen()
-        python_result_fen = python_board.fen()
+        # Play a few random moves from this position
+        move_history = []
 
-        assert rust_result_fen == python_result_fen, f"FEN parsing mismatch for {fen}"
+        for _ in range(10):
+            if rust_game.is_over():
+                break
 
-        # Compare legal moves count
-        rust_moves = rust_game.legal_moves()
-        python_moves = list(python_board.legal_moves)
+            # Compare resulting FEN
+            rust_result_fen = rust_game.to_fen()
+            python_result_fen = python_board.fen()
 
-        assert len(rust_moves) == len(python_moves), f"Legal moves count mismatch for {fen}"
+            assert rust_result_fen == python_result_fen, f"FEN parsing mismatch for {fen}"
+
+            # Compare legal moves count
+            rust_moves = rust_game.legal_moves()
+            python_moves = list(python_board.legal_moves)
+
+            assert len(rust_moves) == len(python_moves), f"Legal moves count mismatch for {fen}"
+
+            _compare_game_states(rust_game, python_board, move_history)
+
+            python_moves = list(python_board.legal_moves)
+            if not python_moves:
+                break
+
+            python_move = random.choice(python_moves)
+            rust_move = rust_game.move_from_lan(python_move.uci())
+
+            assert rust_game.make_move(rust_move), f"Failed to make move {python_move.uci()} from position {fen}"
+            python_board.push(python_move)
+            move_history.append(python_move.uci())
+
+        _compare_game_states(rust_game, python_board, move_history)
 
 
 def test_move_making_and_unmaking() -> None:
