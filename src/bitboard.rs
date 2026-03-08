@@ -507,6 +507,33 @@ impl<const NW: usize> BoardGeometry<NW> {
         (a | b | c | d | e | f | g | h) & self.board_mask
     }
 
+    /// Single forward push for pawns. White = shift_left(width), Black = shift_right(width).
+    /// Does NOT filter by occupancy — caller must `andnot(occupied)`.
+    #[inline]
+    pub fn pawn_push(&self, src: Bitboard<NW>, is_white: bool) -> Bitboard<NW> {
+        let w = self.width as usize;
+        if is_white {
+            src.shift_left(w) & self.board_mask
+        } else {
+            src.shift_right(w) & self.board_mask
+        }
+    }
+
+    /// Diagonal attack squares for pawns (both capture directions combined).
+    #[inline]
+    pub fn pawn_attacks(&self, src: Bitboard<NW>, is_white: bool) -> Bitboard<NW> {
+        let w = self.width as usize;
+        if is_white {
+            let left = src.shift_left(w + 1) & self.not_col_first;
+            let right = src.shift_left(w - 1) & self.not_col_last;
+            (left | right) & self.board_mask
+        } else {
+            let left = src.shift_right(w - 1) & self.not_col_first;
+            let right = src.shift_right(w + 1) & self.not_col_last;
+            (left | right) & self.board_mask
+        }
+    }
+
     #[inline]
     pub fn king_attacks(&self, src: Bitboard<NW>) -> Bitboard<NW> {
         let w = self.width as usize;

@@ -183,116 +183,57 @@ impl<const NW: usize> Game<NW> {
         moves: &mut Vec<Move>,
     ) {
         let occupied = self.board.occupied();
-        let own_color = self.board.color_bb(piece.color);
+        let enemy = self.board.color_bb(piece.color.opposite());
         let width = self.board.width();
         let height = self.board.height();
+        let is_white = piece.color == Color::White;
 
-        let direction: i32 = if piece.color == Color::White { 1 } else { -1 };
+        let start_row = if is_white { 1 } else { height - 2 };
+        let promo_row = if is_white { height - 2 } else { 1 };
 
-        let start_row = if piece.color == Color::White {
-            1
-        } else {
-            height - 2
-        };
+        let src_bb = Bitboard::single(src.to_index(width));
 
-        let promo_row = if piece.color == Color::White {
-            height - 2
-        } else {
-            1
-        };
-
-        // Single push
-        let dst_row = (src.row as i32 + direction) as usize;
-
-        if dst_row < height {
-            let idx = dst_row * width + src.col;
-
-            if !occupied.get(idx) {
-                let dst_position = Position::new(src.col, dst_row);
-
-                if src.row == promo_row {
-                    for piece_type in &[
-                        PieceType::Queen,
-                        PieceType::Rook,
-                        PieceType::Bishop,
-                        PieceType::Knight,
-                    ] {
-                        moves.push(Move::from_position_with_promotion(
-                            *src,
-                            dst_position,
-                            MoveFlags::PROMOTION,
-                            *piece_type,
-                        ));
-                    }
-                } else {
-                    moves.push(Move::from_position(*src, dst_position, MoveFlags::empty()));
+        // Single push: forward one square, blocked by any piece
+        let push = self.geometry.pawn_push(src_bb, is_white).andnot(occupied);
+        for idx in push.iter_ones() {
+            let dst = Position::from_index(idx, width);
+            if src.row == promo_row {
+                for pt in &[PieceType::Queen, PieceType::Rook, PieceType::Bishop, PieceType::Knight] {
+                    moves.push(Move::from_position_with_promotion(*src, dst, MoveFlags::PROMOTION, *pt));
                 }
+            } else {
+                moves.push(Move::from_position(*src, dst, MoveFlags::empty()));
             }
         }
 
-        // Double push from starting position
-        if src.row == start_row {
-            let to_row = (src.row as i32 + 2 * direction) as usize;
-            let between_row = (src.row as i32 + direction) as usize;
-            let to_idx = to_row * width + src.col;
-            let between_idx = between_row * width + src.col;
-
-            if !occupied.get(to_idx) && !occupied.get(between_idx) {
-                moves.push(Move::from_position(
-                    *src,
-                    Position::new(src.col, to_row),
-                    MoveFlags::DOUBLE_PUSH,
-                ));
+        // Double push: forward two squares from start row, both squares must be empty
+        if src.row == start_row && !push.is_empty() {
+            let double = self.geometry.pawn_push(push, is_white).andnot(occupied);
+            for idx in double.iter_ones() {
+                let dst = Position::from_index(idx, width);
+                moves.push(Move::from_position(*src, dst, MoveFlags::DOUBLE_PUSH));
             }
         }
 
-        // Captures
-        for col_offset in &[-1i32, 1i32] {
-            let dst_col = (src.col as i32 + col_offset) as usize;
-            let dst_row = (src.row as i32 + direction) as usize;
-
-            if dst_col < width && dst_row < height {
-                let idx = dst_row * width + dst_col;
-
-                // Regular capture: occupied by enemy
-                if occupied.get(idx) && !own_color.get(idx) {
-                    let dst_position = Position::new(dst_col, dst_row);
-
-                    if src.row == promo_row {
-                        for piece_type in &[
-                            PieceType::Queen,
-                            PieceType::Rook,
-                            PieceType::Bishop,
-                            PieceType::Knight,
-                        ] {
-                            moves.push(Move::from_position_with_promotion(
-                                *src,
-                                dst_position,
-                                MoveFlags::CAPTURE | MoveFlags::PROMOTION,
-                                *piece_type,
-                            ));
-                        }
-                    } else {
-                        moves.push(Move::from_position(
-                            *src,
-                            Position::new(dst_col, dst_row),
-                            MoveFlags::CAPTURE,
-                        ));
-                    }
+        // Captures: diagonal attacks into enemy pieces
+        let attacks = self.geometry.pawn_attacks(src_bb, is_white);
+        let captures = attacks & enemy;
+        for idx in captures.iter_ones() {
+            let dst = Position::from_index(idx, width);
+            if src.row == promo_row {
+                for pt in &[PieceType::Queen, PieceType::Rook, PieceType::Bishop, PieceType::Knight] {
+                    moves.push(Move::from_position_with_promotion(*src, dst, MoveFlags::CAPTURE | MoveFlags::PROMOTION, *pt));
                 }
+            } else {
+                moves.push(Move::from_position(*src, dst, MoveFlags::CAPTURE));
+            }
+        }
 
-                // En passant
-                if let Some(ep) = self.en_passant {
-                    let dst_position = Position::new(dst_col, dst_row);
-
-                    if ep == dst_position {
-                        moves.push(Move::from_position(
-                            *src,
-                            dst_position,
-                            MoveFlags::CAPTURE | MoveFlags::EN_PASSANT,
-                        ));
-                    }
-                }
+        // En passant
+        if let Some(ep) = self.en_passant {
+            let ep_bb = Bitboard::single(ep.to_index(width));
+            if !(attacks & ep_bb).is_empty() {
+                moves.push(Move::from_position(*src, ep, MoveFlags::CAPTURE | MoveFlags::EN_PASSANT));
             }
         }
     }
