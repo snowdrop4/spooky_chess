@@ -1,6 +1,5 @@
-use crate::bitboard::Bitboard;
+use crate::bitboard::{Bitboard, DirStep};
 use crate::color::Color;
-use crate::directions::{ALL_DIRS, DIAGONAL, ORTHOGONAL};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
@@ -150,7 +149,7 @@ impl<const NW: usize> Game<NW> {
             self.generate_pseudo_legal_moves_for_piece_into(src, &piece, &mut pseudo_legal);
 
             for mv in pseudo_legal.iter() {
-                if self.is_pseudo_legal_move_legal(&mv, &piece) {
+                if self.is_pseudo_legal_move_legal(mv, &piece) {
                     moves.push(*mv);
                 }
             }
@@ -325,40 +324,26 @@ impl<const NW: usize> Game<NW> {
         &self,
         src: &Position,
         piece: &Piece,
-        directions: &[(i32, i32)],
+        dirs: &[DirStep<NW>],
         moves: &mut Vec<Move>,
     ) {
         let occupied = self.board.occupied();
         let own_color = self.board.color_bb(piece.color);
         let width = self.board.width();
-        let height = self.board.height();
+        let src_bb = Bitboard::single(src.to_index(width));
 
-        for (col_dir, row_dir) in directions {
-            let mut distance = 1;
+        for dir in dirs {
+            let ray = self.geometry.ray_attacks(src_bb, dir, occupied);
+            let targets = ray.andnot(own_color);
 
-            loop {
-                let dst_col = (src.col as i32 + col_dir * distance) as usize;
-                let dst_row = (src.row as i32 + row_dir * distance) as usize;
-
-                if dst_col >= width || dst_row >= height {
-                    break;
-                }
-
-                let idx = dst_row * width + dst_col;
-
-                if occupied.get(idx) {
-                    if !own_color.get(idx) {
-                        let dst_position = Position::new(dst_col, dst_row);
-                        moves.push(Move::from_position(*src, dst_position, MoveFlags::CAPTURE));
-                    }
-
-                    break;
+            for idx in targets.iter_ones() {
+                let dst = Position::from_index(idx, width);
+                let flags = if occupied.get(idx) {
+                    MoveFlags::CAPTURE
                 } else {
-                    let dst_position = Position::new(dst_col, dst_row);
-                    moves.push(Move::from_position(*src, dst_position, MoveFlags::empty()));
-                }
-
-                distance += 1;
+                    MoveFlags::empty()
+                };
+                moves.push(Move::from_position(*src, dst, flags));
             }
         }
     }
@@ -369,7 +354,7 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &DIAGONAL, moves)
+        self.generate_sliding_moves_into(src, piece, &self.geometry.diagonal_steps, moves)
     }
 
     fn generate_pseudo_legal_rook_moves_into(
@@ -378,7 +363,7 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &ORTHOGONAL, moves)
+        self.generate_sliding_moves_into(src, piece, &self.geometry.orthogonal_steps, moves)
     }
 
     fn generate_pseudo_legal_queen_moves_into(
@@ -387,7 +372,8 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &ALL_DIRS, moves)
+        self.generate_sliding_moves_into(src, piece, &self.geometry.orthogonal_steps, moves);
+        self.generate_sliding_moves_into(src, piece, &self.geometry.diagonal_steps, moves);
     }
 
     fn generate_pseudo_legal_king_moves_into(

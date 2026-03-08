@@ -255,14 +255,20 @@ mod python_bindings {
         }
 
         pub fn has_kingside_castling_rights(&self, color: i8) -> PyResult<bool> {
-            let color = Color::from_int(color)
-                .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)"))?;
+            let color = Color::from_int(color).ok_or_else(|| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "color must be 1 (white) or -1 (black)",
+                )
+            })?;
             Ok(dispatch_game!(&self.inner, g => g.castling_rights().has_kingside(color)))
         }
 
         pub fn has_queenside_castling_rights(&self, color: i8) -> PyResult<bool> {
-            let color = Color::from_int(color)
-                .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)"))?;
+            let color = Color::from_int(color).ok_or_else(|| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "color must be 1 (white) or -1 (black)",
+                )
+            })?;
             Ok(dispatch_game!(&self.inner, g => g.castling_rights().has_queenside(color)))
         }
 

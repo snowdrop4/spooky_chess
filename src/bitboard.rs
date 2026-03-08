@@ -288,6 +288,25 @@ impl<const NW: usize> Iterator for BitIterator<NW> {
     }
 }
 
+/// A single directional step for ray-based sliding move generation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DirStep<const NW: usize> {
+    pub shift: usize,
+    pub left: bool,         // true = shift_left, false = shift_right
+    pub mask: Bitboard<NW>, // column mask to prevent wrapping (ANDed after each step)
+}
+
+impl<const NW: usize> DirStep<NW> {
+    #[inline]
+    pub fn step(&self, bb: Bitboard<NW>) -> Bitboard<NW> {
+        if self.left {
+            bb.shift_left(self.shift) & self.mask
+        } else {
+            bb.shift_right(self.shift) & self.mask
+        }
+    }
+}
+
 /// Precomputed masks for a given board geometry. Created once per Game.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoardGeometry<const NW: usize> {
@@ -304,6 +323,10 @@ pub struct BoardGeometry<const NW: usize> {
     pub not_col_first_2: Bitboard<NW>,
     /// board_mask minus last two columns.
     pub not_col_last_2: Bitboard<NW>,
+    /// Orthogonal ray steps: N, S, E, W.
+    pub orthogonal_steps: [DirStep<NW>; 4],
+    /// Diagonal ray steps: NE, NW, SE, SW.
+    pub diagonal_steps: [DirStep<NW>; 4],
 }
 
 #[hotpath::measure_all]
@@ -356,6 +379,54 @@ impl<const NW: usize> BoardGeometry<NW> {
             }
         }
 
+        // Orthogonal steps: N, S, E, W
+        let orthogonal_steps = [
+            DirStep {
+                shift: w,
+                left: true,
+                mask: board_mask,
+            }, // N (+row)
+            DirStep {
+                shift: w,
+                left: false,
+                mask: board_mask,
+            }, // S (-row)
+            DirStep {
+                shift: 1,
+                left: true,
+                mask: not_col_first,
+            }, // E (+col)
+            DirStep {
+                shift: 1,
+                left: false,
+                mask: not_col_last,
+            }, // W (-col)
+        ];
+
+        // Diagonal steps: NE, NW, SE, SW
+        let diagonal_steps = [
+            DirStep {
+                shift: w + 1,
+                left: true,
+                mask: not_col_first,
+            }, // NE
+            DirStep {
+                shift: w - 1,
+                left: true,
+                mask: not_col_last,
+            }, // NW
+            DirStep {
+                shift: w - 1,
+                left: false,
+                mask: not_col_first,
+            }, // SE
+            DirStep {
+                shift: w + 1,
+                left: false,
+                mask: not_col_last,
+            }, // SW
+        ];
+
         BoardGeometry {
             width,
             height,
@@ -365,7 +436,31 @@ impl<const NW: usize> BoardGeometry<NW> {
             not_col_last,
             not_col_first_2,
             not_col_last_2,
+            orthogonal_steps,
+            diagonal_steps,
         }
+    }
+
+    /// Cast a ray from `src` in direction `dir`, stopping at blockers in `occupied`.
+    /// The ray includes blocker squares (for captures) but does not pass through them.
+    #[inline]
+    pub fn ray_attacks(
+        &self,
+        src: Bitboard<NW>,
+        dir: &DirStep<NW>,
+        occupied: Bitboard<NW>,
+    ) -> Bitboard<NW> {
+        let mut attacks = Bitboard::empty();
+        let mut cursor = dir.step(src);
+        let max_steps = self.width.max(self.height) as usize;
+        for _ in 0..max_steps {
+            if cursor.is_empty() {
+                break;
+            }
+            attacks |= cursor;
+            cursor = dir.step(cursor.andnot(occupied));
+        }
+        attacks
     }
 
     /// Compute the set of all orthogonal neighbors of every bit in `bb`.

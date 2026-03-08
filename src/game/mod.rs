@@ -261,7 +261,6 @@ impl<const NW: usize> Game<NW> {
     pub fn castling_rights(&self) -> &CastlingRights {
         &self.castling_rights
     }
-
 }
 
 /// Type alias for a standard 8x8 game

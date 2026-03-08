@@ -1,5 +1,6 @@
+use crate::bitboard::Bitboard;
 use crate::color::Color;
-use crate::directions::{DIAGONAL, KNIGHT_DELTAS, ORTHOGONAL};
+use crate::directions::KNIGHT_DELTAS;
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
@@ -73,22 +74,11 @@ impl<const NW: usize> Game<NW> {
             | self.board.piece_type_bb(PieceType::Queen))
             & enemy;
         if !rooks_queens.is_empty() {
-            for (col_dir, row_dir) in ORTHOGONAL {
-                let mut d = 1;
-                loop {
-                    let c = (sq_col + col_dir * d) as usize;
-                    let r = (sq_row + row_dir * d) as usize;
-                    if c >= width || r >= height {
-                        break;
-                    }
-                    let idx = r * width + c;
-                    if rooks_queens.get(idx) {
-                        return true;
-                    }
-                    if occupied.get(idx) {
-                        break;
-                    }
-                    d += 1;
+            let src_bb = Bitboard::single(square.to_index(width));
+            for dir in &self.geometry.orthogonal_steps {
+                let ray = self.geometry.ray_attacks(src_bb, dir, occupied);
+                if !(ray & rooks_queens).is_empty() {
+                    return true;
                 }
             }
         }
@@ -98,22 +88,11 @@ impl<const NW: usize> Game<NW> {
             | self.board.piece_type_bb(PieceType::Queen))
             & enemy;
         if !bishops_queens.is_empty() {
-            for (col_dir, row_dir) in DIAGONAL {
-                let mut d = 1;
-                loop {
-                    let c = (sq_col + col_dir * d) as usize;
-                    let r = (sq_row + row_dir * d) as usize;
-                    if c >= width || r >= height {
-                        break;
-                    }
-                    let idx = r * width + c;
-                    if bishops_queens.get(idx) {
-                        return true;
-                    }
-                    if occupied.get(idx) {
-                        break;
-                    }
-                    d += 1;
+            let src_bb = Bitboard::single(square.to_index(width));
+            for dir in &self.geometry.diagonal_steps {
+                let ray = self.geometry.ray_attacks(src_bb, dir, occupied);
+                if !(ray & bishops_queens).is_empty() {
+                    return true;
                 }
             }
         }
