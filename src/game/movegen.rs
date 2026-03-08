@@ -140,20 +140,22 @@ impl<const NW: usize> Game<NW> {
 
     pub fn legal_moves_for_position(&mut self, src: &Position) -> Vec<Move> {
         let mut moves = Vec::new();
+        let mut pseudo_legal = Vec::new();
 
         if let Some(piece) = self.board.get_piece(src) {
             if piece.color != self.turn {
                 return moves;
             }
 
-            let mut pseudo_legal = Vec::new();
             self.generate_pseudo_legal_moves_for_piece_into(src, &piece, &mut pseudo_legal);
 
-            for mv in pseudo_legal {
+            for mv in pseudo_legal.iter() {
                 if self.is_pseudo_legal_move_legal(&mv, &piece) {
-                    moves.push(mv);
+                    moves.push(*mv);
                 }
             }
+
+            pseudo_legal.clear();
         }
 
         moves
