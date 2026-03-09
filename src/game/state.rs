@@ -26,19 +26,17 @@ impl<const NW: usize> Game<NW> {
 
         // 2. Knight attacks
         let knights = self.board.piece_type_bb(PieceType::Knight) & enemy;
-        if !knights.is_empty() {
-            if !(self.geometry.knight_attacks(sq_bb) & knights).is_empty() {
+        if !knights.is_empty()
+            && !(self.geometry.knight_attacks(sq_bb) & knights).is_empty() {
                 return true;
             }
-        }
 
         // 3. King attacks
         let kings = self.board.piece_type_bb(PieceType::King) & enemy;
-        if !kings.is_empty() {
-            if !(self.geometry.king_attacks(sq_bb) & kings).is_empty() {
+        if !kings.is_empty()
+            && !(self.geometry.king_attacks(sq_bb) & kings).is_empty() {
                 return true;
             }
-        }
 
         // 4. Sliding attacks — rooks/queens along ranks and files
         let queens = self.board.piece_type_bb(PieceType::Queen) & enemy;
@@ -117,38 +115,38 @@ impl<const NW: usize> Game<NW> {
 
     pub fn has_legal_en_passant(&mut self) -> bool {
         if let Some(ep_square) = self.en_passant {
-            // Check if any pawn can legally capture en passant
-            // Look for pawns of the current player that can attack the en passant square
-            let direction: i32 = if self.turn == Color::White { 1 } else { -1 };
-            let pawn_row = (ep_square.row as i32 - direction) as usize;
+            let width = self.board.width();
+            let ep_bb = Bitboard::single(ep_square.to_index(width));
+            let is_white = self.turn == Color::White;
 
-            // Check squares to the left and right of the en passant square
-            for col_offset in [-1i32, 1i32] {
-                let pawn_col = ep_square.col as i32 + col_offset;
-                if pawn_col >= 0 && pawn_col < self.board.width() as i32 {
-                    let pawn_pos = Position::new(pawn_col as usize, pawn_row);
-                    if let Some(piece) = self.board.get_piece(&pawn_pos) {
-                        if piece.piece_type == PieceType::Pawn && piece.color == self.turn {
-                            // Test in-place: apply ep capture, check, then undo
-                            let captured_pawn_pos = Position::new(ep_square.col, pawn_pos.row);
-                            let captured_pawn = Piece::new(PieceType::Pawn, self.turn.opposite());
+            // Find our pawns that can attack the ep square using reverse pawn attacks
+            let candidates = self.geometry.pawn_attacks(ep_bb, !is_white)
+                & self.board.piece_type_bb(PieceType::Pawn)
+                & self.board.color_bb(self.turn);
 
-                            self.board.remove_piece(&pawn_pos, &piece);
-                            self.board.remove_piece(&captured_pawn_pos, &captured_pawn);
-                            self.board.place_piece(&ep_square, &piece);
+            if candidates.is_empty() {
+                return false;
+            }
 
-                            let in_check = self.is_in_check(self.turn);
+            let pawn = Piece::new(PieceType::Pawn, self.turn);
+            let captured_pawn = Piece::new(PieceType::Pawn, self.turn.opposite());
 
-                            // Restore
-                            self.board.remove_piece(&ep_square, &piece);
-                            self.board.place_piece(&captured_pawn_pos, &captured_pawn);
-                            self.board.place_piece(&pawn_pos, &piece);
+            for pawn_idx in candidates.iter_ones() {
+                let pawn_pos = Position::from_index(pawn_idx, width);
+                let captured_pawn_pos = Position::new(ep_square.col, pawn_pos.row);
 
-                            if !in_check {
-                                return true;
-                            }
-                        }
-                    }
+                self.board.remove_piece(&pawn_pos, &pawn);
+                self.board.remove_piece(&captured_pawn_pos, &captured_pawn);
+                self.board.place_piece(&ep_square, &pawn);
+
+                let in_check = self.is_in_check(self.turn);
+
+                self.board.remove_piece(&ep_square, &pawn);
+                self.board.place_piece(&captured_pawn_pos, &captured_pawn);
+                self.board.place_piece(&pawn_pos, &pawn);
+
+                if !in_check {
+                    return true;
                 }
             }
         }
