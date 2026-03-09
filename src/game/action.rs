@@ -4,19 +4,20 @@ use crate::r#move::{Move, MoveFlags};
 
 use super::Game;
 
-impl<const NW: usize> Game<NW> {
+impl<const W: usize, const H: usize> Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     /// Decode a full action index into a Move, inferring flags from board state.
     pub fn decode_action(&self, action: usize) -> Option<Move> {
-        let width = self.board.width();
-        let height = self.board.height();
-        let board_size = width * height;
+        let board_size = W * H;
 
         let plane_idx = action / board_size;
         let src_index = action % board_size;
-        let src_col = src_index % width;
-        let src_row = src_index / width;
+        let src_col = src_index % W;
+        let src_row = src_index / W;
 
-        let (dx, dy, promo) = crate::encode::decode_move_plane(plane_idx, width, height)?;
+        let (dx, dy, promo) = crate::encode::decode_move_plane(plane_idx, W, H)?;
 
         let dst_col_i = src_col as i32 + dx;
         let dst_row_i = src_row as i32 + dy;
@@ -24,7 +25,7 @@ impl<const NW: usize> Game<NW> {
             return None;
         }
         let (dst_col, dst_row) = (dst_col_i as usize, dst_row_i as usize);
-        if dst_col >= width || dst_row >= height {
+        if dst_col >= W || dst_row >= H {
             return None;
         }
 
@@ -38,7 +39,7 @@ impl<const NW: usize> Game<NW> {
         let promotion = if let Some(promo_piece) = promo {
             flags |= MoveFlags::PROMOTION;
             Some(promo_piece)
-        } else if piece.piece_type == PieceType::Pawn && (dst_row == 0 || dst_row == height - 1) {
+        } else if piece.piece_type == PieceType::Pawn && (dst_row == 0 || dst_row == H - 1) {
             flags |= MoveFlags::PROMOTION;
             Some(PieceType::Queen)
         } else {
@@ -66,6 +67,6 @@ impl<const NW: usize> Game<NW> {
 
     /// Encode a move as a full action index. Convenience wrapper.
     pub fn encode_action(&self, mv: &Move) -> Option<usize> {
-        crate::encode::encode_action(mv, self.board.width(), self.board.height())
+        crate::encode::encode_action(mv, W, H)
     }
 }

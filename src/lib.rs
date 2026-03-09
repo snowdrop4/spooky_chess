@@ -1,3 +1,6 @@
+#![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
+
 pub mod bitboard;
 pub mod board;
 pub mod color;
@@ -39,7 +42,6 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(feature = "python")]
 mod python_bindings {
     use super::*;
-    use crate::bitboard::nw_for_board;
     use crate::board::Board;
     use crate::color::Color;
     use crate::game::Game;
@@ -49,26 +51,41 @@ mod python_bindings {
     use crate::r#move::{Move, MoveFlags};
 
     // -----------------------------------------------------------------------
-    // Enum dispatch via paste! for Game<NW> and Board<NW>
+    // Enum dispatch via paste! for Game<W, H> and Board<W, H>
     // -----------------------------------------------------------------------
 
-    macro_rules! define_dispatch {
-        ($($nw:literal),*) => {
+    /// Generates the cartesian product of W and H ranges, then invokes $mac with all (W, H) pairs.
+    macro_rules! cartesian_dispatch {
+        ($mac:ident, [$($w:literal),*], $hs:tt) => {
+            cartesian_dispatch!(@acc $mac, $hs, [] ; $($w),*);
+        };
+        // Base case: no more W values, invoke the target macro with accumulated pairs.
+        (@acc $mac:ident, $hs:tt, [$($pairs:tt)*] ; ) => {
+            $mac!($($pairs)*);
+        };
+        // Recursive case: peel off one W, expand all H for it, then continue.
+        (@acc $mac:ident, [$($h:literal),*], [$($pairs:tt)*] ; $w:literal $(, $rest:literal)*) => {
+            cartesian_dispatch!(@acc $mac, [$($h),*], [$($pairs)* $(($w, $h),)*] ; $($rest),*);
+        };
+    }
+
+    macro_rules! define_wh_dispatch {
+        ($(($w:literal, $h:literal)),* $(,)?) => {
             paste::paste! {
                 #[derive(Clone)]
                 enum GameInner {
-                    $( [<Nw $nw>](Game<$nw>), )*
+                    $( [<W $w H $h>](Game<$w, $h>), )*
                 }
 
                 #[derive(Clone)]
                 enum BoardInner {
-                    $( [<Nw $nw>](Board<$nw>), )*
+                    $( [<W $w H $h>](Board<$w, $h>), )*
                 }
 
                 macro_rules! dispatch_game {
                     ($self_:expr, $g:ident => $body:expr) => {
                         match $self_ {
-                            $( GameInner::[<Nw $nw>]($g) => $body, )*
+                            $( GameInner::[<W $w H $h>]($g) => $body, )*
                         }
                     };
                 }
@@ -76,61 +93,62 @@ mod python_bindings {
                 macro_rules! dispatch_board {
                     ($self_:expr, $b:ident => $body:expr) => {
                         match $self_ {
-                            $( BoardInner::[<Nw $nw>]($b) => $body, )*
+                            $( BoardInner::[<W $w H $h>]($b) => $body, )*
                         }
                     };
                 }
 
                 fn make_game_inner(width: usize, height: usize, fen: &str, castling_enabled: bool) -> Result<GameInner, String> {
-                    let nw = nw_for_board(width as u8, height as u8);
-                    match nw {
-                        $( $nw => Ok(GameInner::[<Nw $nw>](Game::new(width, height, fen, castling_enabled)?)), )*
-                        _ => Err(format!("NW out of range: {}", nw)),
+                    match (width, height) {
+                        $( ($w, $h) => Ok(GameInner::[<W $w H $h>](Game::new(fen, castling_enabled)?)), )*
+                        _ => Err(format!("Unsupported board size: {}x{}", width, height)),
                     }
                 }
 
                 fn make_standard_game_inner() -> GameInner {
-                    GameInner::Nw1(Game::standard())
+                    GameInner::W8H8(Game::standard())
                 }
 
                 fn make_board_inner(width: usize, height: usize, fen: &str) -> Result<BoardInner, String> {
-                    let nw = nw_for_board(width as u8, height as u8);
-                    match nw {
-                        $( $nw => Ok(BoardInner::[<Nw $nw>](Board::new(width, height, fen)?)), )*
-                        _ => Err(format!("NW out of range: {}", nw)),
+                    match (width, height) {
+                        $( ($w, $h) => Ok(BoardInner::[<W $w H $h>](Board::new(fen)?)), )*
+                        _ => Err(format!("Unsupported board size: {}x{}", width, height)),
                     }
                 }
 
                 fn make_empty_board_inner(width: usize, height: usize) -> Result<BoardInner, String> {
-                    let nw = nw_for_board(width as u8, height as u8);
-                    match nw {
-                        $( $nw => Ok(BoardInner::[<Nw $nw>](Board::empty(width, height))), )*
-                        _ => Err(format!("NW out of range: {}", nw)),
+                    match (width, height) {
+                        $( ($w, $h) => Ok(BoardInner::[<W $w H $h>](Board::empty())), )*
+                        _ => Err(format!("Unsupported board size: {}x{}", width, height)),
                     }
                 }
 
                 fn make_standard_board_inner() -> BoardInner {
-                    BoardInner::Nw1(Board::standard())
+                    BoardInner::W8H8(Board::standard())
                 }
             }
         }
     }
 
-    define_dispatch!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+    cartesian_dispatch!(
+        define_wh_dispatch,
+        [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    );
 
     // -----------------------------------------------------------------------
     // PyBoard
     // -----------------------------------------------------------------------
 
     fn validate_dimensions(width: usize, height: usize) -> PyResult<()> {
-        if width < 1 || width > 32 {
+        if width < 5 || width > 16 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Board width must be between 1 and 32",
+                "Board width must be between 5 and 16",
             ));
         }
-        if height < 1 || height > 32 {
+        if height < 5 || height > 16 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Board height must be between 1 and 32",
+                "Board height must be between 5 and 16",
             ));
         }
         Ok(())

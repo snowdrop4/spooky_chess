@@ -8,17 +8,21 @@ use crate::r#move::{Move, MoveFlags};
 use super::Game;
 
 #[hotpath::measure_all]
-impl<const NW: usize> Game<NW> {
+impl<const W: usize, const H: usize> Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     pub(super) fn is_square_attacked(&self, square: &Position, by_color: Color) -> bool {
-        let width = self.board.width();
         let occupied = self.board.occupied();
         let enemy = self.board.color_bb(by_color);
-        let sq_bb = Bitboard::single(square.to_index(width));
+        let sq_idx = square.to_index(W);
+        let sq_bb = Bitboard::single(sq_idx);
+        let geo = Self::geo();
 
         // 1. Pawn attacks
         let pawns = self.board.piece_type_bb(PieceType::Pawn) & enemy;
         if !pawns.is_empty() {
-            let pawn_attackers = self.geometry.pawn_attacks(sq_bb, by_color != Color::White);
+            let pawn_attackers = geo.pawn_attacks(sq_idx, by_color != Color::White);
             if !(pawn_attackers & pawns).is_empty() {
                 return true;
             }
@@ -26,24 +30,22 @@ impl<const NW: usize> Game<NW> {
 
         // 2. Knight attacks
         let knights = self.board.piece_type_bb(PieceType::Knight) & enemy;
-        if !knights.is_empty()
-            && !(self.geometry.knight_attacks(sq_bb) & knights).is_empty() {
-                return true;
-            }
+        if !knights.is_empty() && !(geo.knight_attacks(sq_idx) & knights).is_empty() {
+            return true;
+        }
 
         // 3. King attacks
         let kings = self.board.piece_type_bb(PieceType::King) & enemy;
-        if !kings.is_empty()
-            && !(self.geometry.king_attacks(sq_bb) & kings).is_empty() {
-                return true;
-            }
+        if !kings.is_empty() && !(geo.king_attacks(sq_idx) & kings).is_empty() {
+            return true;
+        }
 
         // 4. Sliding attacks — rooks/queens along ranks and files
         let queens = self.board.piece_type_bb(PieceType::Queen) & enemy;
         let rooks_queens = (self.board.piece_type_bb(PieceType::Rook) & enemy) | queens;
         if !rooks_queens.is_empty() {
-            for dir in &self.geometry.orthogonal_steps {
-                let ray = self.geometry.ray_attacks(sq_bb, dir, occupied);
+            for dir in &geo.orthogonal_steps {
+                let ray = geo.ray_attacks(sq_bb, dir, occupied);
                 if !(ray & rooks_queens).is_empty() {
                     return true;
                 }
@@ -53,8 +55,8 @@ impl<const NW: usize> Game<NW> {
         // 5. Sliding attacks — bishops/queens along diagonals
         let bishops_queens = (self.board.piece_type_bb(PieceType::Bishop) & enemy) | queens;
         if !bishops_queens.is_empty() {
-            for dir in &self.geometry.diagonal_steps {
-                let ray = self.geometry.ray_attacks(sq_bb, dir, occupied);
+            for dir in &geo.diagonal_steps {
+                let ray = geo.ray_attacks(sq_bb, dir, occupied);
                 if !(ray & bishops_queens).is_empty() {
                     return true;
                 }
@@ -79,10 +81,9 @@ impl<const NW: usize> Game<NW> {
     fn has_any_legal_move(&mut self) -> bool {
         let mut pseudo_legal = Vec::new();
         let color = self.turn;
-        let width = self.board.width();
         for idx in self.board.color_bb(color).iter_ones() {
             let pt = self.board.piece_type_at(idx).unwrap();
-            let pos = Position::from_index(idx, width);
+            let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 
             pseudo_legal.clear();
@@ -115,12 +116,12 @@ impl<const NW: usize> Game<NW> {
 
     pub fn has_legal_en_passant(&mut self) -> bool {
         if let Some(ep_square) = self.en_passant {
-            let width = self.board.width();
-            let ep_bb = Bitboard::single(ep_square.to_index(width));
+            let ep_idx = ep_square.to_index(W);
             let is_white = self.turn == Color::White;
+            let geo = Self::geo();
 
             // Find our pawns that can attack the ep square using reverse pawn attacks
-            let candidates = self.geometry.pawn_attacks(ep_bb, !is_white)
+            let candidates = geo.pawn_attacks(ep_idx, !is_white)
                 & self.board.piece_type_bb(PieceType::Pawn)
                 & self.board.color_bb(self.turn);
 
@@ -132,7 +133,7 @@ impl<const NW: usize> Game<NW> {
             let captured_pawn = Piece::new(PieceType::Pawn, self.turn.opposite());
 
             for pawn_idx in candidates.iter_ones() {
-                let pawn_pos = Position::from_index(pawn_idx, width);
+                let pawn_pos = Position::from_index(pawn_idx, W);
                 let captured_pawn_pos = Position::new(ep_square.col, pawn_pos.row);
 
                 self.board.remove_piece(&pawn_pos, &pawn);
@@ -182,7 +183,7 @@ impl<const NW: usize> Game<NW> {
     /// Parse a LAN move string, with game context to set proper flags (castling, en passant, etc.)
     /// The `from_lan()` method on Move itself lacks game context.
     pub fn move_from_lan(&self, lan: &str) -> Result<Move, String> {
-        let base_move = Move::from_lan(lan, self.board.width(), self.board.height())?;
+        let base_move = Move::from_lan(lan, W, H)?;
 
         let piece = self
             .board
@@ -482,13 +483,12 @@ impl<const NW: usize> Game<NW> {
     fn are_all_bishops_on_same_color(&self) -> bool {
         let bishops = self.board.piece_type_bb(PieceType::Bishop);
         let mut first_color: Option<usize> = None;
-        let w = self.board.width();
 
         // Check square colors of all bishops (both white and black)
         for idx in bishops.iter_ones() {
             // A square is light if (col + row) is even
-            let col = idx % w;
-            let row = idx / w;
+            let col = idx % W;
+            let row = idx / W;
             let square_color = (col + row) % 2;
             match first_color {
                 None => first_color = Some(square_color),

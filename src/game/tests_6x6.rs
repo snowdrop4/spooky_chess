@@ -1,16 +1,15 @@
 use super::*;
-use crate::bitboard::nw_for_board;
 use crate::color::Color;
 use crate::pieces::PieceType;
 
-type Game6x6 = Game<{ nw_for_board(6, 6) }>;
+type Game6x6 = Game<6, 6>;
 
 #[test]
 fn test_6x6_game_board_sizes() {
     // Create custom FENs for different board sizes
     let fen_6x6 = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1";
 
-    let mut game = Game6x6::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
+    let mut game = Game6x6::new(fen_6x6, true).expect("Failed to create 6x6 game");
     assert_eq!(game.board().width(), 6);
     assert_eq!(game.board().height(), 6);
 
@@ -38,7 +37,7 @@ fn test_6x6_game_board_sizes() {
 #[test]
 fn test_6x6_game_piece_placement() {
     let fen_6x6 = "rnbkqr/pppppp/6/6/PPPPPP/RNBKQR w - - 0 1";
-    let game = Game6x6::new(6, 6, fen_6x6, true).expect("Failed to create 6x6 game");
+    let game = Game6x6::new(fen_6x6, true).expect("Failed to create 6x6 game");
     let white_pieces = game.board().pieces(Color::White);
     let black_pieces = game.board().pieces(Color::Black);
 

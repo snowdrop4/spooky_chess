@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
 
-use crate::bitboard::{nw_for_board, BoardGeometry};
-use crate::board::{Board, STANDARD_COLS, STANDARD_ROWS};
+use crate::bitboard::BoardGeometry;
+use crate::board::Board;
 use crate::color::Color;
 use crate::pieces::Piece;
 use crate::position::Position;
@@ -24,6 +24,9 @@ mod tests_10x10;
 #[cfg(test)]
 mod tests_san;
 
+#[cfg(test)]
+mod tests_actions;
+
 #[derive(Clone)]
 pub struct MoveHistoryEntry {
     pub mv: Move,
@@ -34,9 +37,11 @@ pub struct MoveHistoryEntry {
 }
 
 #[derive(Clone)]
-pub struct Game<const NW: usize> {
-    board: Board<NW>,
-    geometry: BoardGeometry<NW>,
+pub struct Game<const W: usize, const H: usize>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    board: Board<W, H>,
     turn: Color,
     move_history: Vec<MoveHistoryEntry>,
 
@@ -132,13 +137,16 @@ impl CastlingRights {
 }
 
 #[hotpath::measure_all]
-impl<const NW: usize> Game<NW> {
-    pub fn new(
-        width: usize,
-        height: usize,
-        fen: &str,
-        castling_enabled: bool,
-    ) -> Result<Self, String> {
+impl<const W: usize, const H: usize> Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    #[inline]
+    fn geo() -> &'static BoardGeometry<W, H> {
+        &BoardGeometry::<W, H>::INSTANCE
+    }
+
+    pub fn new(fen: &str, castling_enabled: bool) -> Result<Self, String> {
         let parts: ArrayVec<&str, 6> = fen.split(' ').collect();
 
         if parts.is_empty() {
@@ -153,7 +161,7 @@ impl<const NW: usize> Game<NW> {
             ));
         }
 
-        let board = Board::new(width, height, parts[0])?;
+        let board = Board::new(parts[0])?;
 
         // Turn
         let turn = match parts[1] {
@@ -202,11 +210,8 @@ impl<const NW: usize> Game<NW> {
             .find_king(Color::Black)
             .ok_or("No black king found in FEN position".to_string())?;
 
-        let geometry = BoardGeometry::new(width as u8, height as u8);
-
         Ok(Game {
             board,
-            geometry,
             turn,
             move_history: Vec::new(),
             castling_rights,
@@ -220,11 +225,11 @@ impl<const NW: usize> Game<NW> {
     }
 
     pub fn width(&self) -> usize {
-        self.board.width()
+        W
     }
 
     pub fn height(&self) -> usize {
-        self.board.height()
+        H
     }
 
     pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
@@ -235,11 +240,11 @@ impl<const NW: usize> Game<NW> {
         self.board.set_piece(pos, piece)
     }
 
-    pub fn board(&self) -> &Board<NW> {
+    pub fn board(&self) -> &Board<W, H> {
         &self.board
     }
 
-    pub fn board_mut(&mut self) -> &mut Board<NW> {
+    pub fn board_mut(&mut self) -> &mut Board<W, H> {
         &mut self.board
     }
 
@@ -273,14 +278,12 @@ impl<const NW: usize> Game<NW> {
 }
 
 /// Type alias for a standard 8x8 game
-pub type StandardGame = Game<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
+pub type StandardGame = Game<8, 8>;
 
 #[hotpath::measure_all]
 impl StandardGame {
     pub fn standard() -> Self {
         Self::new(
-            8,
-            8,
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             true,
         )
@@ -289,7 +292,10 @@ impl StandardGame {
 }
 
 #[hotpath::measure_all]
-impl<const NW: usize> std::fmt::Display for Game<NW> {
+impl<const W: usize, const H: usize> std::fmt::Display for Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Game(current_player: {})\n{}", self.turn(), self.board)
     }

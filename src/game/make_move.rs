@@ -6,7 +6,10 @@ use crate::r#move::{Move, MoveFlags};
 use super::{Game, MoveHistoryEntry};
 
 #[hotpath::measure_all]
-impl<const NW: usize> Game<NW> {
+impl<const W: usize, const H: usize> Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     /// Returns: whether the move was successfully made
     pub fn make_move(&mut self, mv: &Move) -> bool {
         // Validate the move is from a piece of the correct color
@@ -76,7 +79,7 @@ impl<const NW: usize> Game<NW> {
             let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
                 // Kingside
                 (
-                    Position::new(self.board.width() - 1, mv.src.row),
+                    Position::new(W - 1, mv.src.row),
                     Position::new(mv.dst.col - 1, mv.dst.row),
                 )
             } else {
@@ -179,7 +182,7 @@ impl<const NW: usize> Game<NW> {
                 let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
                     // Kingside
                     (
-                        Position::new(self.board.width() - 1, mv.src.row),
+                        Position::new(W - 1, mv.src.row),
                         Position::new(mv.dst.col - 1, mv.dst.row),
                     )
                 } else {
@@ -210,9 +213,6 @@ impl<const NW: usize> Game<NW> {
     }
 
     fn update_castling_rights(&mut self, mv: &Move, piece: &Piece) {
-        let width = self.board.width();
-        let height = self.board.height();
-
         // King moves: lose both sides
         if piece.piece_type == PieceType::King {
             self.castling_rights.set_kingside(piece.color, false);
@@ -221,10 +221,10 @@ impl<const NW: usize> Game<NW> {
 
         // Rook moves from its starting corner
         if piece.piece_type == PieceType::Rook {
-            self.castling_rights.revoke_at(&mv.src, width, height);
+            self.castling_rights.revoke_at(&mv.src, W, H);
         }
 
         // Captures on a rook's starting corner
-        self.castling_rights.revoke_at(&mv.dst, width, height);
+        self.castling_rights.revoke_at(&mv.dst, W, H);
     }
 }

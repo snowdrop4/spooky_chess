@@ -1,5 +1,11 @@
+use super::*;
+use crate::color::Color;
+use crate::position::Position;
+
 use rand::prelude::IndexedRandom;
 use rand::SeedableRng;
+
+type StdGame = Game<8, 8>;
 
 #[test]
 fn test_encode_decode_action_roundtrip() {

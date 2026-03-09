@@ -1,31 +1,32 @@
 use arrayvec::ArrayVec;
 
-use crate::bitboard::{nw_for_board, Bitboard};
+use crate::bitboard::Bitboard;
 use crate::color::Color;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-pub const STANDARD_COLS: usize = 8;
-pub const STANDARD_ROWS: usize = 8;
-
 #[derive(Clone, Debug)]
-pub struct Board<const NW: usize> {
-    pawns: Bitboard<NW>,
-    knights: Bitboard<NW>,
-    bishops: Bitboard<NW>,
-    rooks: Bitboard<NW>,
-    queens: Bitboard<NW>,
-    kings: Bitboard<NW>,
-    white: Bitboard<NW>,
-    black: Bitboard<NW>,
-    width: usize,
-    height: usize,
+pub struct Board<const W: usize, const H: usize>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    pawns: Bitboard<{ (W * H).div_ceil(64) }>,
+    knights: Bitboard<{ (W * H).div_ceil(64) }>,
+    bishops: Bitboard<{ (W * H).div_ceil(64) }>,
+    rooks: Bitboard<{ (W * H).div_ceil(64) }>,
+    queens: Bitboard<{ (W * H).div_ceil(64) }>,
+    kings: Bitboard<{ (W * H).div_ceil(64) }>,
+    white: Bitboard<{ (W * H).div_ceil(64) }>,
+    black: Bitboard<{ (W * H).div_ceil(64) }>,
 }
 
 #[hotpath::measure_all]
-impl<const NW: usize> PartialEq for Board<NW> {
+impl<const W: usize, const H: usize> PartialEq for Board<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     fn eq(&self, other: &Self) -> bool {
         self.pawns == other.pawns
             && self.knights == other.knights
@@ -35,16 +36,17 @@ impl<const NW: usize> PartialEq for Board<NW> {
             && self.kings == other.kings
             && self.white == other.white
             && self.black == other.black
-            && self.width == other.width
-            && self.height == other.height
     }
 }
 
-impl<const NW: usize> Eq for Board<NW> {}
+impl<const W: usize, const H: usize> Eq for Board<W, H> where [(); (W * H).div_ceil(64)]: {}
 
 #[hotpath::measure_all]
-impl<const NW: usize> Hash for Board<NW> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+impl<const W: usize, const H: usize> Hash for Board<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    fn hash<HH: Hasher>(&self, state: &mut HH) {
         self.pawns.hash(state);
         self.knights.hash(state);
         self.bishops.hash(state);
@@ -53,20 +55,21 @@ impl<const NW: usize> Hash for Board<NW> {
         self.kings.hash(state);
         self.white.hash(state);
         self.black.hash(state);
-        self.width.hash(state);
-        self.height.hash(state);
     }
 }
 
 #[hotpath::measure_all]
-impl<const NW: usize> Board<NW> {
-    pub fn new(width: usize, height: usize, fen: &str) -> Result<Self, String> {
-        let mut board = Self::empty(width, height);
+impl<const W: usize, const H: usize> Board<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    pub fn new(fen: &str) -> Result<Self, String> {
+        let mut board = Self::empty();
         board.load_fen(fen)?;
         Ok(board)
     }
 
-    pub fn empty(width: usize, height: usize) -> Self {
+    pub fn empty() -> Self {
         Board {
             pawns: Bitboard::empty(),
             knights: Bitboard::empty(),
@@ -76,31 +79,29 @@ impl<const NW: usize> Board<NW> {
             kings: Bitboard::empty(),
             white: Bitboard::empty(),
             black: Bitboard::empty(),
-            width,
-            height,
         }
     }
 
     pub fn width(&self) -> usize {
-        self.width
+        W
     }
 
     pub fn height(&self) -> usize {
-        self.height
+        H
     }
 
     #[inline]
-    fn index(&self, col: usize, row: usize) -> usize {
-        row * self.width + col
+    fn index(col: usize, row: usize) -> usize {
+        row * W + col
     }
 
     #[inline]
-    pub fn occupied(&self) -> Bitboard<NW> {
+    pub fn occupied(&self) -> Bitboard<{ (W * H).div_ceil(64) }> {
         self.white | self.black
     }
 
     #[inline]
-    pub fn color_bb(&self, color: Color) -> Bitboard<NW> {
+    pub fn color_bb(&self, color: Color) -> Bitboard<{ (W * H).div_ceil(64) }> {
         match color {
             Color::White => self.white,
             Color::Black => self.black,
@@ -108,7 +109,7 @@ impl<const NW: usize> Board<NW> {
     }
 
     #[inline]
-    pub fn piece_type_bb(&self, pt: PieceType) -> Bitboard<NW> {
+    pub fn piece_type_bb(&self, pt: PieceType) -> Bitboard<{ (W * H).div_ceil(64) }> {
         match pt {
             PieceType::Pawn => self.pawns,
             PieceType::Knight => self.knights,
@@ -120,7 +121,7 @@ impl<const NW: usize> Board<NW> {
     }
 
     #[inline]
-    fn piece_type_bb_mut(&mut self, pt: PieceType) -> &mut Bitboard<NW> {
+    fn piece_type_bb_mut(&mut self, pt: PieceType) -> &mut Bitboard<{ (W * H).div_ceil(64) }> {
         match pt {
             PieceType::Pawn => &mut self.pawns,
             PieceType::Knight => &mut self.knights,
@@ -132,7 +133,7 @@ impl<const NW: usize> Board<NW> {
     }
 
     #[inline]
-    fn color_bb_mut(&mut self, color: Color) -> &mut Bitboard<NW> {
+    fn color_bb_mut(&mut self, color: Color) -> &mut Bitboard<{ (W * H).div_ceil(64) }> {
         match color {
             Color::White => &mut self.white,
             Color::Black => &mut self.black,
@@ -166,10 +167,10 @@ impl<const NW: usize> Board<NW> {
     }
 
     pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
-        if !pos.is_valid(self.width, self.height) {
+        if !pos.is_valid(W, H) {
             return None;
         }
-        let idx = self.index(pos.col, pos.row);
+        let idx = Self::index(pos.col, pos.row);
         let pt = self.piece_type_at(idx)?;
         let color = if self.white.get(idx) {
             Color::White
@@ -180,10 +181,10 @@ impl<const NW: usize> Board<NW> {
     }
 
     pub fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
-        if !pos.is_valid(self.width, self.height) {
+        if !pos.is_valid(W, H) {
             return;
         }
-        let idx = self.index(pos.col, pos.row);
+        let idx = Self::index(pos.col, pos.row);
 
         // Clear existing piece at this index
         self.pawns.clear(idx);
@@ -204,7 +205,7 @@ impl<const NW: usize> Board<NW> {
     /// Remove a known piece from the board. Caller must guarantee `piece` matches what's at `pos`.
     #[inline]
     pub fn remove_piece(&mut self, pos: &Position, piece: &Piece) {
-        let idx = self.index(pos.col, pos.row);
+        let idx = Self::index(pos.col, pos.row);
         self.piece_type_bb_mut(piece.piece_type).clear(idx);
         self.color_bb_mut(piece.color).clear(idx);
     }
@@ -212,7 +213,7 @@ impl<const NW: usize> Board<NW> {
     /// Place a piece on the board. The target square must be empty.
     #[inline]
     pub fn place_piece(&mut self, pos: &Position, piece: &Piece) {
-        let idx = self.index(pos.col, pos.row);
+        let idx = Self::index(pos.col, pos.row);
         self.piece_type_bb_mut(piece.piece_type).set(idx);
         self.color_bb_mut(piece.color).set(idx);
     }
@@ -231,10 +232,10 @@ impl<const NW: usize> Board<NW> {
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
 
-        for row in (0..self.height).rev() {
+        for row in (0..H).rev() {
             let mut empty_count = 0;
 
-            for col in 0..self.width {
+            for col in 0..W {
                 let pos = Position::new(col, row);
                 if let Some(piece) = self.get_piece(&pos) {
                     if empty_count > 0 {
@@ -264,16 +265,16 @@ impl<const NW: usize> Board<NW> {
 
         let parts: ArrayVec<&str, 32> = fen.split('/').collect();
 
-        if parts.len() != self.height {
+        if parts.len() != H {
             return Err(format!(
                 "Invalid FEN: expected {} rows, got {}",
-                self.height,
+                H,
                 parts.len()
             ));
         }
 
         for (row_idx, row_str) in parts.iter().enumerate() {
-            let row = self.height - 1 - row_idx;
+            let row = H - 1 - row_idx;
             let mut col = 0;
             let mut chars = row_str.chars().peekable();
 
@@ -296,7 +297,7 @@ impl<const NW: usize> Board<NW> {
                         .map_err(|_| format!("Invalid FEN number: {}", num_str))?;
                     col += skip;
                 } else if let Some(piece) = Piece::from_char(c) {
-                    if col >= self.width {
+                    if col >= W {
                         return Err("Invalid FEN: col index out of bounds".to_string());
                     }
                     self.set_piece(&Position::new(col, row), Some(piece));
@@ -306,7 +307,7 @@ impl<const NW: usize> Board<NW> {
                 }
             }
 
-            if col != self.width {
+            if col != W {
                 return Err(format!(
                     "Invalid FEN: row {} has wrong number of squares",
                     row
@@ -322,7 +323,7 @@ impl<const NW: usize> Board<NW> {
     }
 
     #[inline]
-    pub fn pieces_iter(&self, color: Color) -> PieceIterator<'_, NW> {
+    pub fn pieces_iter(&self, color: Color) -> PieceIterator<'_, W, H> {
         PieceIterator {
             board: self,
             color,
@@ -334,53 +335,51 @@ impl<const NW: usize> Board<NW> {
         let king_bb = self.kings & self.color_bb(color);
         king_bb
             .lowest_bit_index()
-            .map(|idx| Position::from_index(idx, self.width))
+            .map(|idx| Position::from_index(idx, W))
     }
 }
 
-pub struct PieceIterator<'a, const NW: usize> {
-    board: &'a Board<NW>,
+pub struct PieceIterator<'a, const W: usize, const H: usize>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    board: &'a Board<W, H>,
     color: Color,
-    bit_iter: crate::bitboard::BitIterator<NW>,
+    bit_iter: crate::bitboard::BitIterator<{ (W * H).div_ceil(64) }>,
 }
 
-impl<'a, const NW: usize> Iterator for PieceIterator<'a, NW> {
+impl<'a, const W: usize, const H: usize> Iterator for PieceIterator<'a, W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     type Item = (Position, Piece);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.bit_iter.next()?;
         let pt = self.board.piece_type_at(idx).unwrap();
-        let pos = Position::from_index(idx, self.board.width);
+        let pos = Position::from_index(idx, W);
         Some((pos, Piece::new(pt, self.color)))
     }
 }
 
 #[hotpath::measure_all]
-impl Board<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }> {
+impl Board<8, 8> {
     pub fn standard() -> Self {
-        Self::new(
-            STANDARD_COLS,
-            STANDARD_ROWS,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
-        )
-        .expect("Failed to create standard board")
+        Self::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+            .expect("Failed to create standard board")
     }
 }
 
 #[hotpath::measure_all]
-impl<const NW: usize> Default for Board<NW> {
-    fn default() -> Self {
-        Self::empty(STANDARD_COLS, STANDARD_ROWS)
-    }
-}
-
-#[hotpath::measure_all]
-impl<const NW: usize> fmt::Display for Board<NW> {
+impl<const W: usize, const H: usize> fmt::Display for Board<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in (0..self.height).rev() {
+        for row in (0..H).rev() {
             write!(f, "{:2} ", row + 1)?;
-            for col in 0..self.width {
+            for col in 0..W {
                 let pos = Position::new(col, row);
                 if let Some(piece) = self.get_piece(&pos) {
                     write!(f, "{} ", piece.to_char())?;
@@ -393,7 +392,7 @@ impl<const NW: usize> fmt::Display for Board<NW> {
 
         write!(f, "   ")?;
 
-        for col in 0..self.width {
+        for col in 0..W {
             if col < 26 {
                 write!(f, "{} ", (b'a' + col as u8) as char)?;
             } else {
@@ -409,27 +408,25 @@ impl<const NW: usize> fmt::Display for Board<NW> {
 mod tests {
     use super::*;
 
-    type StdBoard = Board<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
+    type StdBoard = Board<8, 8>;
 
     #[test]
     fn test_custom_board_creation() {
-        let board: Board<{ nw_for_board(6, 6) }> =
-            Board::new(6, 6, "rnbqk1/pppppp/6/6/PPPPPP/RNBQK1")
-                .expect("Failed to create custom board");
+        let board: Board<6, 6> =
+            Board::new("rnbqk1/pppppp/6/6/PPPPPP/RNBQK1").expect("Failed to create custom board");
         assert_eq!(board.width(), 6);
         assert_eq!(board.height(), 6);
     }
 
     #[test]
     fn test_custom_board_creation_invalid() {
-        let board: Result<Board<{ nw_for_board(6, 6) }>, _> =
-            Board::new(6, 6, "rnbqk1/pppppp/1/6/PPPPPP/RNBQK1");
+        let board: Result<Board<6, 6>, _> = Board::new("rnbqk1/pppppp/1/6/PPPPPP/RNBQK1");
         assert!(board.is_err(), "Expected error for invalid FEN");
     }
 
     #[test]
     fn test_board_piece_placement() {
-        let mut board = StdBoard::empty(8, 8);
+        let mut board = StdBoard::empty();
         let king = Piece::new(PieceType::King, Color::White);
         let pos = Position::new(4, 0);
 
@@ -534,7 +531,7 @@ mod tests {
         let fen = board.to_fen();
         assert_eq!(fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
 
-        let new_board = StdBoard::new(8, 8, &fen).expect("Failed to parse FEN string");
+        let new_board = StdBoard::new(&fen).expect("Failed to parse FEN string");
 
         // Verify the boards are identical
         for row in 0..8 {

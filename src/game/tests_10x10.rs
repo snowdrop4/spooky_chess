@@ -1,10 +1,9 @@
 use super::*;
-use crate::bitboard::nw_for_board;
 use crate::pieces::PieceType;
 use crate::position::Position;
 use crate::r#move::MoveFlags;
 
-type Game10x10 = Game<{ nw_for_board(10, 10) }>;
+type Game10x10 = Game<10, 10>;
 
 #[test]
 fn test_10x10_castling_kingside() {
@@ -12,7 +11,7 @@ fn test_10x10_castling_kingside() {
     // Row 0 = white back rank, row 9 = black back rank
     // King at f1, rook at j1, clear path between them
     let fen = "r3k4r/10/10/10/10/10/10/10/10/R3K4R w KQkq - 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     // White should be able to castle kingside (king e1 -> g1)
     let legal = game.legal_moves();
@@ -54,7 +53,7 @@ fn test_10x10_castling_kingside() {
 #[test]
 fn test_10x10_castling_queenside() {
     let fen = "r3k4r/10/10/10/10/10/10/10/10/R3K4R w KQkq - 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let legal = game.legal_moves();
     let castle_qs = legal.iter().find(|m| {
@@ -91,7 +90,7 @@ fn test_10x10_castling_queenside() {
 #[test]
 fn test_10x10_castling_unmake() {
     let fen = "r3k4r/10/10/10/10/10/10/10/10/R3K4R w KQkq - 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let original_fen = game.to_fen();
 
@@ -110,7 +109,7 @@ fn test_10x10_castling_unmake() {
 fn test_10x10_castling_blocked() {
     // Place a piece between king and rook to block castling
     let fen = "r3k4r/10/10/10/10/10/10/10/10/R3KN3R w KQkq - 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let legal = game.legal_moves();
     let castle_ks = legal.iter().find(|m| {
@@ -127,7 +126,7 @@ fn test_10x10_en_passant_white() {
     // 10x10 board: white pawn on e6 (col 4, row 5), black pawn just double-pushed d8-d6
     // En passant target = d7 (col 3, row 6)
     let fen = "r3k4r/10/10/10/3pP5/10/10/10/10/R3K4R w KQkq d7 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let legal = game.legal_moves();
     let ep = legal
@@ -164,7 +163,7 @@ fn test_10x10_en_passant_black() {
     // En passant target = g4 (col 6, row 3)
     // FEN rows go top-to-bottom: row 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
     let fen = "r3k4r/10/10/10/10/5pP3/10/10/10/R3K4R b KQkq g4 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let legal = game.legal_moves();
     let ep = legal
@@ -196,7 +195,7 @@ fn test_10x10_en_passant_black() {
 #[test]
 fn test_10x10_en_passant_unmake() {
     let fen = "r3k4r/10/10/10/3pP5/10/10/10/10/R3K4R w KQkq d7 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let original_fen = game.to_fen();
 
@@ -220,7 +219,7 @@ fn test_10x10_en_passant_unmake() {
 fn test_10x10_en_passant_created_by_double_push() {
     // Verify that a double pawn push on a 10x10 board sets the en passant square correctly
     let fen = "r3k4r/10/10/10/10/10/10/10/4P5/R3K4R w KQkq - 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     let mv = game.move_from_lan("e2e4").unwrap();
     assert!(mv.flags.contains(MoveFlags::DOUBLE_PUSH));
@@ -238,7 +237,7 @@ fn test_10x10_en_passant_created_by_double_push() {
 fn test_10x10_en_passant_fen_roundtrip() {
     // Verify en passant is correctly represented in FEN on non-standard board
     let fen = "r3k4r/10/10/10/3pP5/10/10/10/10/R3K4R w KQkq d7 0 1";
-    let mut game = Game10x10::new(10, 10, fen, true).expect("Failed to create 10x10 game");
+    let mut game = Game10x10::new(fen, true).expect("Failed to create 10x10 game");
 
     assert_eq!(
         game.to_fen(),

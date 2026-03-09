@@ -7,7 +7,10 @@ use crate::r#move::{Move, MoveFlags};
 use super::Game;
 
 #[hotpath::measure_all]
-impl<const NW: usize> Game<NW> {
+impl<const W: usize, const H: usize> Game<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     pub fn is_legal_move(&mut self, mv: &Move) -> bool {
         let piece = match self.board.get_piece(&mv.src) {
             Some(p) if p.color == self.turn => p,
@@ -33,12 +36,11 @@ impl<const NW: usize> Game<NW> {
     /// Test whether a pseudo-legal move is actually legal (doesn't leave own king in check).
     /// Temporarily makes the move on the board, checks, then unmakes.
     pub(super) fn is_pseudo_legal_move_legal(&mut self, mv: &Move, piece: &Piece) -> bool {
-        let width = self.board.width();
         let opponent = piece.color.opposite();
 
         let captured =
             if mv.flags.contains(MoveFlags::CAPTURE) && !mv.flags.contains(MoveFlags::EN_PASSANT) {
-                let dst_idx = mv.dst.to_index(width);
+                let dst_idx = mv.dst.to_index(W);
                 let pt = self.board.piece_type_at(dst_idx).unwrap();
                 Some(Piece::new(pt, opponent))
             } else {
@@ -108,10 +110,9 @@ impl<const NW: usize> Game<NW> {
         let mut pseudo_legal = Vec::new();
 
         let color = self.turn;
-        let width = self.board.width();
         for idx in self.board.color_bb(color).iter_ones() {
             let pt = self.board.piece_type_at(idx).unwrap();
-            let pos = Position::from_index(idx, width);
+            let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 
             pseudo_legal.clear();
@@ -184,19 +185,19 @@ impl<const NW: usize> Game<NW> {
     ) {
         let occupied = self.board.occupied();
         let enemy = self.board.color_bb(piece.color.opposite());
-        let width = self.board.width();
-        let height = self.board.height();
         let is_white = piece.color == Color::White;
+        let geo = Self::geo();
 
-        let start_row = if is_white { 1 } else { height - 2 };
-        let promo_row = if is_white { height - 2 } else { 1 };
+        let start_row = if is_white { 1 } else { H - 2 };
+        let promo_row = if is_white { H - 2 } else { 1 };
 
-        let src_bb = Bitboard::single(src.to_index(width));
+        let src_idx = src.to_index(W);
+        let src_bb = Bitboard::single(src_idx);
 
         // Single push: forward one square, blocked by any piece
-        let push = self.geometry.pawn_push(src_bb, is_white).andnot(occupied);
+        let push = geo.pawn_push(src_bb, is_white).andnot(occupied);
         for idx in push.iter_ones() {
-            let dst = Position::from_index(idx, width);
+            let dst = Position::from_index(idx, W);
             if src.row == promo_row {
                 for pt in &[
                     PieceType::Queen,
@@ -218,18 +219,18 @@ impl<const NW: usize> Game<NW> {
 
         // Double push: forward two squares from start row, both squares must be empty
         if src.row == start_row && !push.is_empty() {
-            let double = self.geometry.pawn_push(push, is_white).andnot(occupied);
+            let double = geo.pawn_push(push, is_white).andnot(occupied);
             for idx in double.iter_ones() {
-                let dst = Position::from_index(idx, width);
+                let dst = Position::from_index(idx, W);
                 moves.push(Move::from_position(*src, dst, MoveFlags::DOUBLE_PUSH));
             }
         }
 
         // Captures: diagonal attacks into enemy pieces
-        let attacks = self.geometry.pawn_attacks(src_bb, is_white);
+        let attacks = geo.pawn_attacks(src_idx, is_white);
         let captures = attacks & enemy;
         for idx in captures.iter_ones() {
-            let dst = Position::from_index(idx, width);
+            let dst = Position::from_index(idx, W);
             if src.row == promo_row {
                 for pt in &[
                     PieceType::Queen,
@@ -251,7 +252,7 @@ impl<const NW: usize> Game<NW> {
 
         // En passant
         if let Some(ep) = self.en_passant {
-            let ep_bb = Bitboard::single(ep.to_index(width));
+            let ep_bb = Bitboard::single(ep.to_index(W));
             if !(attacks & ep_bb).is_empty() {
                 moves.push(Move::from_position(
                     *src,
@@ -270,12 +271,11 @@ impl<const NW: usize> Game<NW> {
     ) {
         let own_color = self.board.color_bb(piece.color);
         let occupied = self.board.occupied();
-        let width = self.board.width();
-        let src_bb = Bitboard::single(src.to_index(width));
-        let attacks = self.geometry.knight_attacks(src_bb).andnot(own_color);
+        let src_idx = src.to_index(W);
+        let attacks = Self::geo().knight_attacks(src_idx).andnot(own_color);
 
         for idx in attacks.iter_ones() {
-            let to = Position::from_index(idx, width);
+            let to = Position::from_index(idx, W);
             let flags = if occupied.get(idx) {
                 MoveFlags::CAPTURE
             } else {
@@ -289,20 +289,20 @@ impl<const NW: usize> Game<NW> {
         &self,
         src: &Position,
         piece: &Piece,
-        dirs: &[DirStep<NW>],
+        dirs: &[DirStep<{ (W * H).div_ceil(64) }>],
         moves: &mut Vec<Move>,
     ) {
         let occupied = self.board.occupied();
         let own_color = self.board.color_bb(piece.color);
-        let width = self.board.width();
-        let src_bb = Bitboard::single(src.to_index(width));
+        let src_bb = Bitboard::single(src.to_index(W));
+        let geo = Self::geo();
 
         for dir in dirs {
-            let ray = self.geometry.ray_attacks(src_bb, dir, occupied);
+            let ray = geo.ray_attacks(src_bb, dir, occupied);
             let targets = ray.andnot(own_color);
 
             for idx in targets.iter_ones() {
-                let dst = Position::from_index(idx, width);
+                let dst = Position::from_index(idx, W);
                 let flags = if occupied.get(idx) {
                     MoveFlags::CAPTURE
                 } else {
@@ -319,7 +319,7 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &self.geometry.diagonal_steps, moves)
+        self.generate_sliding_moves_into(src, piece, &Self::geo().diagonal_steps, moves)
     }
 
     fn generate_pseudo_legal_rook_moves_into(
@@ -328,7 +328,7 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &self.geometry.orthogonal_steps, moves)
+        self.generate_sliding_moves_into(src, piece, &Self::geo().orthogonal_steps, moves)
     }
 
     fn generate_pseudo_legal_queen_moves_into(
@@ -337,8 +337,8 @@ impl<const NW: usize> Game<NW> {
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &self.geometry.orthogonal_steps, moves);
-        self.generate_sliding_moves_into(src, piece, &self.geometry.diagonal_steps, moves);
+        self.generate_sliding_moves_into(src, piece, &Self::geo().orthogonal_steps, moves);
+        self.generate_sliding_moves_into(src, piece, &Self::geo().diagonal_steps, moves);
     }
 
     fn generate_pseudo_legal_king_moves_into(
@@ -349,14 +349,13 @@ impl<const NW: usize> Game<NW> {
     ) {
         let own_color = self.board.color_bb(piece.color);
         let occupied = self.board.occupied();
-        let width = self.board.width();
 
         // Regular moves
-        let src_bb = Bitboard::single(src.to_index(width));
-        let attacks = self.geometry.king_attacks(src_bb).andnot(own_color);
+        let src_idx = src.to_index(W);
+        let attacks = Self::geo().king_attacks(src_idx).andnot(own_color);
 
         for idx in attacks.iter_ones() {
-            let to = Position::from_index(idx, width);
+            let to = Position::from_index(idx, W);
             let flags = if occupied.get(idx) {
                 MoveFlags::CAPTURE
             } else {
@@ -366,14 +365,14 @@ impl<const NW: usize> Game<NW> {
         }
 
         // Castling
-        if self.castling_enabled && width >= 5 && !self.is_in_check(piece.color) {
+        if self.castling_enabled && W >= 5 && !self.is_in_check(piece.color) {
             let row = src.row;
             let opponent = piece.color.opposite();
 
             // Kingside: king to col king+2, rook from last col to king+1
             if self.castling_rights.has_kingside(piece.color) {
                 let king_dst = src.col + 2;
-                let rook_col = width - 1;
+                let rook_col = W - 1;
                 if king_dst < rook_col {
                     self.try_generate_castle(src, row, king_dst, rook_col, opponent, moves);
                 }
@@ -399,7 +398,6 @@ impl<const NW: usize> Game<NW> {
         opponent: Color,
         moves: &mut Vec<Move>,
     ) {
-        let width = self.board.width();
         let occupied = self.board.occupied();
 
         // All squares between king and rook must be empty
@@ -409,7 +407,7 @@ impl<const NW: usize> Game<NW> {
             (rook_col + 1, king_src.col)
         };
         for col in lo..hi {
-            if occupied.get(row * width + col) {
+            if occupied.get(row * W + col) {
                 return;
             }
         }

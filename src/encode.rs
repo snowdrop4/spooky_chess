@@ -34,11 +34,14 @@ const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 /// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
 /// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
 #[hotpath::measure]
-pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, usize, usize, usize) {
-    let width = game.board().width();
-    let height = game.board().height();
+pub fn encode_game_planes<const W: usize, const H: usize>(
+    game: &mut Game<W, H>,
+) -> (Vec<f32>, usize, usize, usize)
+where
+    [(); (W * H).div_ceil(64)]:,
+{
     let num_planes = TOTAL_INPUT_PLANES;
-    let board_size = height * width;
+    let board_size = H * W;
     let total_size = num_planes * board_size;
     let mut data = vec![0.0f32; total_size];
 
@@ -54,12 +57,12 @@ pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, us
         .collect();
 
     // T=0: current position
-    fill_chess_planes(&mut data, game, perspective, 0, width, height);
+    fill_chess_planes::<W, H>(&mut data, game, perspective, 0);
 
     // T=1..steps_back: walk backward through history
     for t in 1..=steps_back {
         game.unmake_move();
-        fill_chess_planes(&mut data, game, perspective, t, width, height);
+        fill_chess_planes::<W, H>(&mut data, game, perspective, t);
     }
 
     // Replay saved moves to restore game state
@@ -121,7 +124,7 @@ pub fn encode_game_planes<const NW: usize>(game: &mut Game<NW>) -> (Vec<f32>, us
     let no_progress = game.halfmove_clock() as f32 / 50.0;
     fill_constant_plane(&mut data, constant_start + 8, no_progress, board_size);
 
-    (data, num_planes, height, width)
+    (data, num_planes, H, W)
 }
 
 #[hotpath::measure]
@@ -143,27 +146,27 @@ fn piece_type_plane_index(pt: PieceType) -> usize {
 }
 
 #[hotpath::measure]
-fn fill_chess_planes<const NW: usize>(
+fn fill_chess_planes<const W: usize, const H: usize>(
     data: &mut [f32],
-    game: &Game<NW>,
+    game: &Game<W, H>,
     perspective: Color,
     t: usize,
-    width: usize,
-    height: usize,
-) {
-    let board_size = height * width;
+) where
+    [(); (W * H).div_ceil(64)]:,
+{
+    let board_size = H * W;
     let base_plane = t * PIECE_PLANES;
 
     for (pos, piece) in game.board().pieces_iter(perspective) {
         let plane_idx = piece_type_plane_index(piece.piece_type);
         let offset = (base_plane + plane_idx) * board_size;
-        data[offset + pos.to_index(width)] = 1.0;
+        data[offset + pos.to_index(W)] = 1.0;
     }
 
     for (pos, piece) in game.board().pieces_iter(perspective.opposite()) {
         let plane_idx = piece_type_plane_index(piece.piece_type);
         let offset = (base_plane + 6 + plane_idx) * board_size;
-        data[offset + pos.to_index(width)] = 1.0;
+        data[offset + pos.to_index(W)] = 1.0;
     }
 }
 
@@ -658,8 +661,8 @@ mod tests {
                             }
 
                             // Test encoding for all legal moves
-                            let width = game.board().width();
-                            let height = game.board().height();
+                            let width = 8;
+                            let height = 8;
                             let total_actions = get_total_actions(width, height);
                             let mut seen_actions = std::collections::HashSet::new();
 

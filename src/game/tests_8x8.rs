@@ -5,7 +5,7 @@ use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 use crate::r#move::{Move, MoveFlags};
 
-type Game8x8 = Game<{ nw_for_board(STANDARD_COLS as u8, STANDARD_ROWS as u8) }>;
+type Game8x8 = Game<8, 8>;
 
 #[test]
 fn test_8x8_game_creation() {
@@ -115,7 +115,7 @@ fn test_8x8_game_bishop_attack_patterns() {
 fn test_8x8_game_fen_parsing_valid_en_passant() {
     // Test with a valid en passant scenario
     let valid_ep_fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
-    let mut game = Game8x8::new(8, 8, valid_ep_fen, true).expect("Failed to parse FEN");
+    let mut game = Game8x8::new(valid_ep_fen, true).expect("Failed to parse FEN");
 
     assert_eq!(game.to_fen(), valid_ep_fen);
     assert_eq!(game.turn(), Color::White);
@@ -126,7 +126,7 @@ fn test_8x8_game_fen_parsing_valid_en_passant() {
 #[test]
 fn test_8x8_game_fen_parsing_invalid_en_passant() {
     let invalid_ep_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-    let mut game = Game8x8::new(8, 8, invalid_ep_fen, true).expect("Failed to parse FEN");
+    let mut game = Game8x8::new(invalid_ep_fen, true).expect("Failed to parse FEN");
 
     // Note: en passant square e3 is ignored because there's no enemy pawn that can capture
     assert_eq!(
@@ -218,7 +218,7 @@ fn test_8x8_game_outcome_checkmate_black_wins() {
 fn test_8x8_game_outcome_stalemate() {
     // White king on a8, black queen on b6, black king on c7
     let fen = "K7/8/1q6/8/8/8/8/2k5 w - - 0 1";
-    let mut game = Game8x8::new(8, 8, fen, false).expect("Failed to parse stalemate FEN");
+    let mut game = Game8x8::new(fen, false).expect("Failed to parse stalemate FEN");
 
     assert!(
         !game.is_check(),

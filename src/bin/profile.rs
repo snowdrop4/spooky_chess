@@ -1,3 +1,6 @@
+#![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
+
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
 use rand::SeedableRng;
@@ -5,7 +8,7 @@ use spooky_chess::game::Game;
 
 #[hotpath::measure]
 fn play_random_game(rng: &mut SmallRng) -> spooky_chess::outcome::GameOutcome {
-    let mut game = Game::<1>::standard();
+    let mut game = Game::<8, 8>::standard();
 
     loop {
         if let Some(outcome) = game.outcome() {
