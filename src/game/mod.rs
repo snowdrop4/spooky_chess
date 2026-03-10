@@ -13,13 +13,10 @@ mod movegen;
 mod state;
 
 #[cfg(test)]
-mod tests_6x6;
+mod tests_standard;
 
 #[cfg(test)]
-mod tests_8x8;
-
-#[cfg(test)]
-mod tests_10x10;
+mod tests_parametrised;
 
 #[cfg(test)]
 mod tests_san;

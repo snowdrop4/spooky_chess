@@ -1,4 +1,4 @@
-# spooky_chess
+# spooky_chess 🎃👻
 
 Rust and Python library for the game of Chess.
 
@@ -10,7 +10,7 @@ Rust and Python library for the game of Chess.
 
 # Performance
 
-Threadripper 9980x, 6400 MT/s CL46 DDR5:
+Threadripper 9980x, 6400 MT/s CL36 DDR5:
 
 ```fish
 > uv run python -m pytest -k test_compare_random_game_playout -s

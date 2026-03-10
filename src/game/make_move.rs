@@ -44,6 +44,29 @@ where
         let old_en_passant = self.en_passant;
         let old_halfmove = self.halfmove_clock;
 
+        // Handle castling rook first: move rook before placing king so pieces
+        // don't overlap on the same square (which would corrupt bitboards on
+        // small boards where king destination == rook source).
+        if mv.flags.contains(MoveFlags::CASTLE) {
+            let rook = Piece::new(PieceType::Rook, piece.color);
+            let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
+                // Kingside
+                (
+                    Position::new(W - 1, mv.src.row),
+                    Position::new(mv.dst.col - 1, mv.dst.row),
+                )
+            } else {
+                // Queenside
+                (
+                    Position::new(0, mv.src.row),
+                    Position::new(mv.dst.col + 1, mv.dst.row),
+                )
+            };
+
+            self.board.remove_piece(&rook_from, &rook);
+            self.board.place_piece(&rook_to, &rook);
+        }
+
         // Make the move on the board
         self.board.remove_piece(&mv.src, piece);
         if let Some(ref cap) = captured {
@@ -71,27 +94,6 @@ where
             let captured_pawn_pos = Position::new(mv.dst.col, mv.src.row);
             let ep_piece = Piece::new(PieceType::Pawn, piece.color.opposite());
             self.board.remove_piece(&captured_pawn_pos, &ep_piece);
-        }
-
-        // Handle castling
-        if mv.flags.contains(MoveFlags::CASTLE) {
-            let rook = Piece::new(PieceType::Rook, piece.color);
-            let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
-                // Kingside
-                (
-                    Position::new(W - 1, mv.src.row),
-                    Position::new(mv.dst.col - 1, mv.dst.row),
-                )
-            } else {
-                // Queenside
-                (
-                    Position::new(0, mv.src.row),
-                    Position::new(mv.dst.col + 1, mv.dst.row),
-                )
-            };
-
-            self.board.remove_piece(&rook_from, &rook);
-            self.board.place_piece(&rook_to, &rook);
         }
 
         // Update castling rights
@@ -176,7 +178,8 @@ where
                 self.board.place_piece(&captured_pawn_pos, &ep_piece);
             }
 
-            // Handle castling
+            // Restore castling rook: must happen after king is removed from
+            // dst, so rook doesn't overlap with king on small boards.
             if mv.flags.contains(MoveFlags::CASTLE) {
                 let rook = Piece::new(PieceType::Rook, self.turn);
                 let (rook_from, rook_to) = if mv.dst.col > mv.src.col {

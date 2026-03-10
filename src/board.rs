@@ -214,6 +214,12 @@ where
     #[inline]
     pub fn place_piece(&mut self, pos: &Position, piece: &Piece) {
         let idx = Self::index(pos.col, pos.row);
+        debug_assert!(
+            !self.occupied().get(idx),
+            "place_piece: square ({}, {}) is already occupied",
+            pos.col,
+            pos.row,
+        );
         self.piece_type_bb_mut(piece.piece_type).set(idx);
         self.color_bb_mut(piece.color).set(idx);
     }

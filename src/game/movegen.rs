@@ -47,6 +47,28 @@ where
                 None
             };
 
+        // Handle castling rook: must move rook before placing king so pieces
+        // don't overlap on the same square (which would corrupt bitboards).
+        let castle_rook = if mv.flags.contains(MoveFlags::CASTLE) {
+            let rook = Piece::new(PieceType::Rook, piece.color);
+            let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
+                (
+                    Position::new(W - 1, mv.src.row),
+                    Position::new(mv.dst.col - 1, mv.dst.row),
+                )
+            } else {
+                (
+                    Position::new(0, mv.src.row),
+                    Position::new(mv.dst.col + 1, mv.dst.row),
+                )
+            };
+            self.board.remove_piece(&rook_from, &rook);
+            self.board.place_piece(&rook_to, &rook);
+            Some((rook_from, rook_to, rook))
+        } else {
+            None
+        };
+
         // Make the move on the board
         self.board.remove_piece(&mv.src, piece);
         if let Some(ref cap) = captured {
@@ -101,6 +123,12 @@ where
             self.board.place_piece(&mv.dst, cap);
         }
         self.board.place_piece(&mv.src, piece);
+
+        // Restore castling rook
+        if let Some((rook_from, rook_to, rook)) = castle_rook {
+            self.board.remove_piece(&rook_to, &rook);
+            self.board.place_piece(&rook_from, &rook);
+        }
 
         !in_check
     }
