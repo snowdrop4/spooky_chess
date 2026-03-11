@@ -99,7 +99,7 @@ where
                 mv.promotion.is_some(),
                 "PROMOTION flag set but no promotion piece type specified",
             );
-            Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
+            Piece::new(mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION), piece.color)
         } else {
             *piece
         };

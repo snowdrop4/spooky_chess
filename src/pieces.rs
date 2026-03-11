@@ -11,6 +11,15 @@ pub enum PieceType {
 }
 
 impl PieceType {
+    pub const PROMOTABLE: [PieceType; 4] = [
+        PieceType::Queen,
+        PieceType::Knight,
+        PieceType::Bishop,
+        PieceType::Rook,
+    ];
+
+    pub const DEFAULT_PROMOTION: PieceType = PieceType::Queen;
+
     pub fn to_char(self) -> char {
         match self {
             PieceType::Pawn => 'p',

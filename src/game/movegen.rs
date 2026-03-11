@@ -89,7 +89,7 @@ where
             self.board.remove_piece(&mv.dst, cap);
         }
         let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
-            Piece::new(mv.promotion.unwrap_or(PieceType::Queen), piece.color)
+            Piece::new(mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION), piece.color)
         } else {
             *piece
         };
@@ -248,12 +248,7 @@ where
         for idx in push.iter_ones() {
             let dst = Position::from_index(idx, W);
             if src.row == promo_row {
-                for pt in &[
-                    PieceType::Queen,
-                    PieceType::Rook,
-                    PieceType::Bishop,
-                    PieceType::Knight,
-                ] {
+                for pt in &PieceType::PROMOTABLE {
                     moves.push(Move::from_position_with_promotion(
                         *src,
                         dst,
@@ -281,12 +276,7 @@ where
         for idx in captures.iter_ones() {
             let dst = Position::from_index(idx, W);
             if src.row == promo_row {
-                for pt in &[
-                    PieceType::Queen,
-                    PieceType::Rook,
-                    PieceType::Bishop,
-                    PieceType::Knight,
-                ] {
+                for pt in &PieceType::PROMOTABLE {
                     moves.push(Move::from_position_with_promotion(
                         *src,
                         dst,

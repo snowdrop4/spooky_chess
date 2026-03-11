@@ -41,7 +41,7 @@ where
             Some(promo_piece)
         } else if piece.piece_type == PieceType::Pawn && (dst_row == 0 || dst_row == H - 1) {
             flags |= MoveFlags::PROMOTION;
-            Some(PieceType::Queen)
+            Some(PieceType::DEFAULT_PROMOTION)
         } else {
             None
         };
