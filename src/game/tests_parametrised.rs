@@ -39,15 +39,15 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn game_creation() {
-                    let mut game = G::new($start_fen, true).unwrap();
+                    let mut game = G::new($start_fen, true).expect("game_creation: failed to create game from start FEN");
                     assert_eq!(game.board().width(), $W);
                     assert_eq!(game.board().height(), $H);
                     assert_eq!(
-                        game.board().get_piece(&game.white_king_pos).unwrap().piece_type,
+                        game.board().get_piece(&game.white_king_pos).expect("game_creation: white king must exist at tracked position").piece_type,
                         PieceType::King,
                     );
                     assert_eq!(
-                        game.board().get_piece(&game.black_king_pos).unwrap().piece_type,
+                        game.board().get_piece(&game.black_king_pos).expect("game_creation: black king must exist at tracked position").piece_type,
                         PieceType::King,
                     );
                     let fen = game.to_fen();
@@ -56,7 +56,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn piece_placement() {
-                    let game = G::new($start_fen, true).unwrap();
+                    let game = G::new($start_fen, true).expect("piece_placement: failed to create game from start FEN");
                     let white_pieces = game.board().pieces(Color::White);
                     let black_pieces = game.board().pieces(Color::Black);
 
@@ -77,7 +77,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn rook_attack_patterns() {
-                    let mut game = G::new($start_fen, false).unwrap();
+                    let mut game = G::new($start_fen, false).expect("rook_attack_patterns: failed to create game from start FEN");
                     game.board.clear();
                     game.board.set_piece(
                         &Position::new(0, 0),
@@ -114,7 +114,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn bishop_attack_patterns() {
-                    let mut game = G::new($start_fen, false).unwrap();
+                    let mut game = G::new($start_fen, false).expect("bishop_attack_patterns: failed to create game from start FEN");
                     game.board.clear();
                     // Kings placed off the diagonals from (2,2)
                     game.board.set_piece(
@@ -164,7 +164,7 @@ macro_rules! board_size_tests {
                     #[case] _name: &str,
                     #[case] extra_piece: Option<(PieceType, Color, Position)>,
                 ) {
-                    let mut game = G::new($start_fen, true).unwrap();
+                    let mut game = G::new($start_fen, true).expect("insufficient_material: failed to create game from start FEN");
                     game.board.clear();
 
                     game.board.set_piece(
@@ -189,7 +189,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn fifty_move_rule() {
-                    let mut game = G::new($start_fen, true).unwrap();
+                    let mut game = G::new($start_fen, true).expect("fifty_move_rule: failed to create game from start FEN");
                     game.board.clear();
 
                     game.board.set_piece(
@@ -224,7 +224,7 @@ macro_rules! board_size_tests {
                     #[case] king_dst_col: usize,
                     #[case] rook_dst_col: usize,
                 ) {
-                    let mut game = G::new($castling_fen, true).unwrap();
+                    let mut game = G::new($castling_fen, true).expect("castling: failed to create game from castling FEN");
 
                     let legal = game.legal_moves();
                     let castle = legal.iter().find(|m| {
@@ -237,15 +237,15 @@ macro_rules! board_size_tests {
                         "Should be able to castle {name} on {}x{} board", $W, $H,
                     );
 
-                    let mv = castle.unwrap().clone();
+                    let mv = castle.expect("castling: castle move must exist after is_some assertion").clone();
                     assert!(game.make_move(&mv));
 
                     assert_eq!(
-                        game.board().get_piece(&Position::new(king_dst_col, 0)).unwrap().piece_type,
+                        game.board().get_piece(&Position::new(king_dst_col, 0)).expect("castling: king must exist at destination after castling").piece_type,
                         PieceType::King,
                     );
                     assert_eq!(
-                        game.board().get_piece(&Position::new(rook_dst_col, 0)).unwrap().piece_type,
+                        game.board().get_piece(&Position::new(rook_dst_col, 0)).expect("castling: rook must exist at destination after castling").piece_type,
                         PieceType::Rook,
                     );
                     assert!(game.board().get_piece(&Position::new($king_col, 0)).is_none());
@@ -253,7 +253,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn castling_unmake() {
-                    let mut game = G::new($castling_fen, true).unwrap();
+                    let mut game = G::new($castling_fen, true).expect("castling_unmake: failed to create game from castling FEN");
                     let original_fen = game.to_fen();
 
                     let legal = game.legal_moves();
@@ -261,7 +261,7 @@ macro_rules! board_size_tests {
                         m.src == Position::new($king_col, 0)
                             && m.flags.contains(MoveFlags::CASTLE)
                             && m.dst.col > m.src.col
-                    }).unwrap().clone();
+                    }).expect("castling_unmake: kingside castle move must exist").clone();
                     game.make_move(&castle);
                     game.unmake_move();
 
@@ -270,7 +270,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn castling_blocked() {
-                    let mut game = G::new($castling_blocked_fen, true).unwrap();
+                    let mut game = G::new($castling_blocked_fen, true).expect("castling_blocked: failed to create game from blocked castling FEN");
 
                     let legal = game.legal_moves();
                     let castle_ks = legal.iter().find(|m| {
@@ -299,7 +299,7 @@ macro_rules! board_size_tests {
                     #[case] expected_dst: Position,
                     #[case] captured_pos: Position,
                 ) {
-                    let mut game = G::new(fen, true).unwrap();
+                    let mut game = G::new(fen, true).expect("en_passant: failed to create game from en passant FEN");
 
                     let legal = game.legal_moves();
                     let ep = legal.iter().find(|m| m.flags.contains(MoveFlags::EN_PASSANT));
@@ -308,14 +308,14 @@ macro_rules! board_size_tests {
                         "{name} should be able to capture en passant on {}x{}", $W, $H,
                     );
 
-                    let ep_mv = ep.unwrap().clone();
+                    let ep_mv = ep.expect("en_passant: en passant move must exist after is_some assertion").clone();
                     assert_eq!(ep_mv.src, expected_src);
                     assert_eq!(ep_mv.dst, expected_dst);
 
                     game.make_move(&ep_mv);
 
                     assert_eq!(
-                        game.board().get_piece(&expected_dst).unwrap().piece_type,
+                        game.board().get_piece(&expected_dst).expect("en_passant: pawn must exist at en passant destination").piece_type,
                         PieceType::Pawn,
                     );
                     assert!(game.board().get_piece(&captured_pos).is_none());
@@ -324,13 +324,13 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn en_passant_unmake() {
-                    let mut game = G::new($ep_unmake_fen, true).unwrap();
+                    let mut game = G::new($ep_unmake_fen, true).expect("en_passant_unmake: failed to create game from FEN");
                     let original_fen = game.to_fen();
 
                     let legal = game.legal_moves();
                     let ep = legal.iter()
                         .find(|m| m.flags.contains(MoveFlags::EN_PASSANT))
-                        .unwrap().clone();
+                        .expect("en_passant_unmake: en passant move must exist").clone();
                     game.make_move(&ep);
                     game.unmake_move();
 
@@ -339,9 +339,9 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn en_passant_created_by_double_push() {
-                    let mut game = G::new($ep_double_push_fen, true).unwrap();
+                    let mut game = G::new($ep_double_push_fen, true).expect("en_passant_created_by_double_push: failed to create game from FEN");
 
-                    let mv = game.move_from_lan($ep_double_push_lan).unwrap();
+                    let mv = game.move_from_lan($ep_double_push_lan).expect("en_passant_created_by_double_push: failed to parse double push LAN move");
                     assert!(mv.flags.contains(MoveFlags::DOUBLE_PUSH));
                     game.make_move(&mv);
 
@@ -353,7 +353,7 @@ macro_rules! board_size_tests {
 
                 #[test]
                 fn en_passant_fen_roundtrip() {
-                    let mut game = G::new($ep_roundtrip_fen, true).unwrap();
+                    let mut game = G::new($ep_roundtrip_fen, true).expect("en_passant_fen_roundtrip: failed to create game from FEN");
                     assert_eq!(game.to_fen(), $ep_roundtrip_fen);
                 }
             }

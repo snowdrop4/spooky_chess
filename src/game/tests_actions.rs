@@ -49,7 +49,7 @@ fn encode_decode_action_roundtrip() {
                 );
             }
 
-            let chosen = legal_moves.choose(&mut rng).unwrap();
+            let chosen = legal_moves.choose(&mut rng).expect("encode_decode_action_roundtrip: legal moves list must not be empty");
             game.make_move_unchecked(chosen);
         }
     }
@@ -60,8 +60,8 @@ fn apply_action_roundtrip() {
     let mut game = Game8x8::standard();
 
     // e2e4 as an action
-    let mv = game.move_from_lan("e2e4").unwrap();
-    let action = game.encode_action(&mv).unwrap();
+    let mv = game.move_from_lan("e2e4").expect("apply_action_roundtrip: failed to parse e2e4 LAN move");
+    let action = game.encode_action(&mv).expect("apply_action_roundtrip: failed to encode action for e2e4");
     assert!(game.apply_action(action));
     assert_eq!(game.turn(), Color::Black);
 

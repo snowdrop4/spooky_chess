@@ -14,7 +14,7 @@ fn simulate_game(rng: &mut SmallRng, moves_count: usize) -> usize {
     while moves_made < moves_count && !game.is_over() {
         let legal_moves = game.legal_moves();
         if !legal_moves.is_empty() {
-            game.make_move_unchecked(legal_moves.choose(rng).unwrap());
+            game.make_move_unchecked(legal_moves.choose(rng).expect("simulate_game: legal moves list must not be empty"));
             moves_made += 1;
         } else {
             break;

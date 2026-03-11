@@ -19,7 +19,7 @@ fn setup_midgame() -> StandardGame {
         if moves.is_empty() {
             break;
         }
-        let mv = moves.choose(&mut rng).unwrap();
+        let mv = moves.choose(&mut rng).expect("setup_midgame: legal moves must not be empty for random choice");
         game.make_move_unchecked(mv);
     }
     game
@@ -37,7 +37,7 @@ fn bench_legal_moves(c: &mut Criterion) {
 fn bench_make_move(c: &mut Criterion) {
     let mut game = setup_midgame();
     let moves = game.legal_moves();
-    let mv = *moves.first().unwrap();
+    let mv = *moves.first().expect("bench_make_move: legal moves must not be empty");
     c.bench_function("make_move", |b| {
         b.iter_batched(
             || game.clone(),
@@ -52,7 +52,7 @@ fn bench_make_move(c: &mut Criterion) {
 fn bench_make_unmake(c: &mut Criterion) {
     let mut game = setup_midgame();
     let moves = game.legal_moves();
-    let mv = *moves.first().unwrap();
+    let mv = *moves.first().expect("bench_make_unmake: legal moves must not be empty");
     c.bench_function("make_unmake", |b| {
         b.iter_batched(
             || game.clone(),
@@ -95,7 +95,7 @@ fn bench_random_playout(c: &mut Criterion) {
                 if moves.is_empty() {
                     break;
                 }
-                let mv = moves.choose(&mut rng).unwrap();
+                let mv = moves.choose(&mut rng).expect("bench_random_playout: legal moves must not be empty");
                 game.make_move_unchecked(mv);
             }
             black_box(game.outcome())
@@ -111,7 +111,7 @@ fn bench_self_play_step(c: &mut Criterion) {
             |mut g| {
                 let moves = g.legal_moves();
                 let _planes = encode_game_planes(&mut g);
-                let mv = moves.first().unwrap();
+                let mv = moves.first().expect("bench_self_play_step: legal moves must not be empty");
                 g.make_move_unchecked(mv);
                 black_box(&g);
             },

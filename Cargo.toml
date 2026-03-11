@@ -42,6 +42,9 @@ name = "benchmarks"
 harness = false
 required-features = ["bench"]
 
+[lints.clippy]
+unwrap_used = "deny"
+
 [profile.release]
 lto = true
 codegen-units = 1

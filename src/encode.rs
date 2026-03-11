@@ -719,7 +719,7 @@ mod tests {
                                     game.to_fen()
                                 );
 
-                                let plane_idx = encoded.unwrap();
+                                let plane_idx = encoded.expect("test_fuzz_move_encoding_random_games: failed to encode move plane");
                                 let decoded = decode_move_plane(plane_idx, width, height);
                                 assert!(
                                     decoded.is_some(),
@@ -728,7 +728,7 @@ mod tests {
                                     move_.to_lan()
                                 );
 
-                                let (dx, dy, promo) = decoded.unwrap();
+                                let (dx, dy, promo) = decoded.expect("test_fuzz_move_encoding_random_games: failed to decode move plane");
 
                                 // Verify deltas
                                 let expected_dx = move_.dst.col as i32 - move_.src.col as i32;
@@ -787,7 +787,7 @@ mod tests {
                                     move_.to_lan(),
                                     game.to_fen()
                                 );
-                                let action_idx = action.unwrap();
+                                let action_idx = action.expect("test_fuzz_move_encoding_random_games: failed to encode full action");
                                 assert!(
                                     action_idx < total_actions,
                                     "Action index {} out of range (total: {}) for move {}",
@@ -833,7 +833,7 @@ mod tests {
                             }
 
                             // Make a random move
-                            let chosen_move = legal_moves.choose(&mut rng).unwrap();
+                            let chosen_move = legal_moves.choose(&mut rng).expect("test_fuzz_move_encoding_random_games: legal moves must not be empty");
                             game.make_move_unchecked(chosen_move);
 
                             thread_moves_played += 1;
@@ -848,7 +848,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("test_fuzz_move_encoding_random_games: worker thread panicked");
         }
 
         let final_moves_played = total_moves_played.load(Ordering::Relaxed);

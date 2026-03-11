@@ -58,7 +58,7 @@ where
                     "CAPTURE flag set but no piece at destination index {}",
                     dst_idx,
                 );
-                let pt = self.board.piece_type_at(dst_idx).unwrap();
+                let pt = self.board.piece_type_at(dst_idx).expect("is_pseudo_legal_move_legal: piece type must exist at capture destination");
                 Some(Piece::new(pt, opponent))
             } else {
                 None
@@ -160,7 +160,7 @@ where
 
         let color = self.turn;
         for idx in self.board.color_bb(color).iter_ones() {
-            let pt = self.board.piece_type_at(idx).unwrap();
+            let pt = self.board.piece_type_at(idx).expect("legal_moves: piece type must exist for color bitboard index");
             let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 
