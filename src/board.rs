@@ -205,21 +205,11 @@ where
         if !pos.is_valid(W, H) {
             return;
         }
-        let idx = Self::index(pos.col, pos.row);
-
-        // Clear existing piece at this index
-        self.pawns.clear(idx);
-        self.knights.clear(idx);
-        self.bishops.clear(idx);
-        self.rooks.clear(idx);
-        self.queens.clear(idx);
-        self.kings.clear(idx);
-        self.white.clear(idx);
-        self.black.clear(idx);
-
+        if let Some(existing) = self.get_piece(pos) {
+            self.remove_piece(pos, &existing);
+        }
         if let Some(p) = piece {
-            self.piece_type_bb_mut(p.piece_type).set(idx);
-            self.color_bb_mut(p.color).set(idx);
+            self.place_piece(pos, &p);
         }
     }
 
