@@ -472,16 +472,6 @@ mod python_bindings {
             })
         }
 
-        pub fn name(&self) -> String {
-            dispatch_game!(&self.inner, g => {
-                format!(
-                    "chess_{}x{}",
-                    g.board().width(),
-                    g.board().height()
-                )
-            })
-        }
-
         pub fn is_insufficient_material(&self) -> bool {
             dispatch_game!(&self.inner, g => g.is_insufficient_material())
         }
@@ -750,10 +740,6 @@ mod python_bindings {
 
         pub fn is_draw(&self) -> bool {
             self.outcome.is_draw()
-        }
-
-        pub fn name(&self) -> String {
-            self.outcome.to_string()
         }
 
         pub fn __str__(&self) -> String {
