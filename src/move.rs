@@ -77,6 +77,26 @@ impl Move {
         Ok(move_)
     }
 
+    /// Returns `(rook_from, rook_to)` for a castling move given the board width.
+    /// Kingside: rook starts at column `board_width - 1`, lands at `king_dst - 1`.
+    /// Queenside: rook starts at column 0, lands at `king_dst + 1`.
+    pub fn castling_rook_positions(&self, board_width: usize) -> (Position, Position) {
+        debug_assert!(self.flags.contains(MoveFlags::CASTLE));
+        if self.dst.col > self.src.col {
+            // Kingside
+            (
+                Position::new(board_width - 1, self.src.row),
+                Position::new(self.dst.col - 1, self.dst.row),
+            )
+        } else {
+            // Queenside
+            (
+                Position::new(0, self.src.row),
+                Position::new(self.dst.col + 1, self.dst.row),
+            )
+        }
+    }
+
     pub fn to_lan(&self) -> String {
         let mut lan = format!("{}{}", self.src.to_algebraic(), self.dst.to_algebraic());
 

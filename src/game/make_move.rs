@@ -75,20 +75,7 @@ where
                 piece.piece_type,
             );
             let rook = Piece::new(PieceType::Rook, piece.color);
-            let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
-                // Kingside
-                (
-                    Position::new(W - 1, mv.src.row),
-                    Position::new(mv.dst.col - 1, mv.dst.row),
-                )
-            } else {
-                // Queenside
-                (
-                    Position::new(0, mv.src.row),
-                    Position::new(mv.dst.col + 1, mv.dst.row),
-                )
-            };
-
+            let (rook_from, rook_to) = mv.castling_rook_positions(W);
             debug_assert!(
                 self.board.get_piece(&rook_from) == Some(rook),
                 "castling: expected rook at ({}, {}), found {:?}",
@@ -263,20 +250,7 @@ where
             // dst, so rook doesn't overlap with king on small boards.
             if mv.flags.contains(MoveFlags::CASTLE) {
                 let rook = Piece::new(PieceType::Rook, self.turn);
-                let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
-                    // Kingside
-                    (
-                        Position::new(W - 1, mv.src.row),
-                        Position::new(mv.dst.col - 1, mv.dst.row),
-                    )
-                } else {
-                    // Queenside
-                    (
-                        Position::new(0, mv.src.row),
-                        Position::new(mv.dst.col + 1, mv.dst.row),
-                    )
-                };
-
+                let (rook_from, rook_to) = mv.castling_rook_positions(W);
                 debug_assert!(
                     self.board.get_piece(&rook_to) == Some(rook),
                     "unmake castling: expected rook at ({}, {}), found {:?}",

@@ -68,17 +68,7 @@ where
         // don't overlap on the same square (which would corrupt bitboards).
         let castle_rook = if mv.flags.contains(MoveFlags::CASTLE) {
             let rook = Piece::new(PieceType::Rook, piece.color);
-            let (rook_from, rook_to) = if mv.dst.col > mv.src.col {
-                (
-                    Position::new(W - 1, mv.src.row),
-                    Position::new(mv.dst.col - 1, mv.dst.row),
-                )
-            } else {
-                (
-                    Position::new(0, mv.src.row),
-                    Position::new(mv.dst.col + 1, mv.dst.row),
-                )
-            };
+            let (rook_from, rook_to) = mv.castling_rook_positions(W);
             debug_assert!(
                 self.board.get_piece(&rook_from) == Some(rook),
                 "castling legality: expected rook at ({}, {}), found {:?}",
