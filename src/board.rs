@@ -333,7 +333,9 @@ where
 
                     while let Some(&next_c) = chars.peek() {
                         if next_c.is_ascii_digit() {
-                            num_str.push(chars.next().expect("load_fen: peeked digit char must be available from iterator"));
+                            num_str.push(chars.next().expect(
+                                "load_fen: peeked digit char must be available from iterator",
+                            ));
                         } else {
                             break;
                         }
@@ -410,7 +412,10 @@ where
             self.color,
             idx,
         );
-        let pt = self.board.piece_type_at(idx).expect("next: piece type must exist for color bitboard index");
+        let pt = self
+            .board
+            .piece_type_at(idx)
+            .expect("next: piece type must exist for color bitboard index");
         let pos = Position::from_index(idx, W);
         Some((pos, Piece::new(pt, self.color)))
     }

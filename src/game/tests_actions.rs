@@ -2,8 +2,8 @@ use super::*;
 use crate::color::Color;
 use crate::position::Position;
 
-use rand::prelude::IndexedRandom;
 use rand::SeedableRng;
+use rand::prelude::IndexedRandom;
 
 type Game8x8 = Game<8, 8>;
 
@@ -49,7 +49,9 @@ fn encode_decode_action_roundtrip() {
                 );
             }
 
-            let chosen = legal_moves.choose(&mut rng).expect("encode_decode_action_roundtrip: legal moves list must not be empty");
+            let chosen = legal_moves
+                .choose(&mut rng)
+                .expect("encode_decode_action_roundtrip: legal moves list must not be empty");
             game.make_move_unchecked(chosen);
         }
     }
@@ -60,8 +62,12 @@ fn apply_action_roundtrip() {
     let mut game = Game8x8::standard();
 
     // e2e4 as an action
-    let mv = game.move_from_lan("e2e4").expect("apply_action_roundtrip: failed to parse e2e4 LAN move");
-    let action = game.encode_action(&mv).expect("apply_action_roundtrip: failed to encode action for e2e4");
+    let mv = game
+        .move_from_lan("e2e4")
+        .expect("apply_action_roundtrip: failed to parse e2e4 LAN move");
+    let action = game
+        .encode_action(&mv)
+        .expect("apply_action_roundtrip: failed to encode action for e2e4");
     assert!(game.apply_action(action));
     assert_eq!(game.turn(), Color::Black);
 

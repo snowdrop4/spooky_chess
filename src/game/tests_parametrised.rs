@@ -1,9 +1,9 @@
 use super::*;
 use crate::color::Color;
+use crate::r#move::MoveFlags;
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
-use crate::r#move::MoveFlags;
 use rstest::rstest;
 
 macro_rules! board_size_tests {

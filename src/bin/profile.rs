@@ -1,9 +1,9 @@
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 
+use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use rand::SeedableRng;
 use spooky_chess::game::Game;
 
 #[hotpath::measure]
@@ -16,7 +16,9 @@ fn play_random_game(rng: &mut SmallRng) -> spooky_chess::outcome::GameOutcome {
         }
 
         let moves = game.legal_moves();
-        let mv = moves.choose(rng).expect("play_random_game: legal moves list must not be empty");
+        let mv = moves
+            .choose(rng)
+            .expect("play_random_game: legal moves list must not be empty");
         game.make_move_unchecked(mv);
     }
 }

@@ -1,13 +1,13 @@
 use pyo3::prelude::*;
 
-use crate::color::Color;
-use crate::encode;
-use crate::position::Position;
 use super::dispatch::*;
 use super::py_move::PyMove;
 use super::py_outcome::PyGameOutcome;
 use super::py_piece::PyPiece;
 use super::py_position::PyPosition;
+use crate::color::Color;
+use crate::encode;
+use crate::position::Position;
 
 #[pyclass(name = "Game")]
 pub struct PyGame {
@@ -18,12 +18,7 @@ pub struct PyGame {
 #[pymethods]
 impl PyGame {
     #[new]
-    pub fn new(
-        width: usize,
-        height: usize,
-        fen: &str,
-        castling_enabled: bool,
-    ) -> PyResult<Self> {
+    pub fn new(width: usize, height: usize, fen: &str, castling_enabled: bool) -> PyResult<Self> {
         let inner = make_game_inner(width, height, fen, castling_enabled)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
         Ok(PyGame { inner })
@@ -58,18 +53,14 @@ impl PyGame {
 
     pub fn has_kingside_castling_rights(&self, color: i8) -> PyResult<bool> {
         let color = Color::from_int(color).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "color must be 1 (white) or -1 (black)",
-            )
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
         })?;
         Ok(dispatch_game!(&self.inner, g => g.castling_rights().has_kingside(color)))
     }
 
     pub fn has_queenside_castling_rights(&self, color: i8) -> PyResult<bool> {
         let color = Color::from_int(color).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "color must be 1 (white) or -1 (black)",
-            )
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
         })?;
         Ok(dispatch_game!(&self.inner, g => g.castling_rights().has_queenside(color)))
     }

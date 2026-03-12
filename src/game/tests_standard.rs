@@ -1,9 +1,9 @@
 use super::*;
 use crate::color::Color;
+use crate::r#move::{Move, MoveFlags};
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
-use crate::r#move::{Move, MoveFlags};
 use rstest::rstest;
 
 type Game8x8 = Game<8, 8>;
@@ -72,13 +72,27 @@ fn move_making_basic() {
 fn outcome_checkmate_white_wins() {
     let mut game = Game8x8::standard();
 
-    game.make_move(&Move::from_lan("e2e4", 8, 8).expect("outcome_checkmate_white_wins: failed to parse e2e4"));
-    game.make_move(&Move::from_lan("e7e5", 8, 8).expect("outcome_checkmate_white_wins: failed to parse e7e5"));
-    game.make_move(&Move::from_lan("f1c4", 8, 8).expect("outcome_checkmate_white_wins: failed to parse f1c4"));
-    game.make_move(&Move::from_lan("b8c6", 8, 8).expect("outcome_checkmate_white_wins: failed to parse b8c6"));
-    game.make_move(&Move::from_lan("d1h5", 8, 8).expect("outcome_checkmate_white_wins: failed to parse d1h5"));
-    game.make_move(&Move::from_lan("g8f6", 8, 8).expect("outcome_checkmate_white_wins: failed to parse g8f6"));
-    game.make_move(&Move::from_lan("h5f7", 8, 8).expect("outcome_checkmate_white_wins: failed to parse h5f7"));
+    game.make_move(
+        &Move::from_lan("e2e4", 8, 8).expect("outcome_checkmate_white_wins: failed to parse e2e4"),
+    );
+    game.make_move(
+        &Move::from_lan("e7e5", 8, 8).expect("outcome_checkmate_white_wins: failed to parse e7e5"),
+    );
+    game.make_move(
+        &Move::from_lan("f1c4", 8, 8).expect("outcome_checkmate_white_wins: failed to parse f1c4"),
+    );
+    game.make_move(
+        &Move::from_lan("b8c6", 8, 8).expect("outcome_checkmate_white_wins: failed to parse b8c6"),
+    );
+    game.make_move(
+        &Move::from_lan("d1h5", 8, 8).expect("outcome_checkmate_white_wins: failed to parse d1h5"),
+    );
+    game.make_move(
+        &Move::from_lan("g8f6", 8, 8).expect("outcome_checkmate_white_wins: failed to parse g8f6"),
+    );
+    game.make_move(
+        &Move::from_lan("h5f7", 8, 8).expect("outcome_checkmate_white_wins: failed to parse h5f7"),
+    );
 
     assert!(game.is_checkmate());
     assert_eq!(game.outcome(), Some(GameOutcome::WhiteWin));
@@ -88,10 +102,18 @@ fn outcome_checkmate_white_wins() {
 fn outcome_checkmate_black_wins() {
     let mut game = Game8x8::standard();
 
-    game.make_move(&Move::from_lan("f2f3", 8, 8).expect("outcome_checkmate_black_wins: failed to parse f2f3"));
-    game.make_move(&Move::from_lan("e7e5", 8, 8).expect("outcome_checkmate_black_wins: failed to parse e7e5"));
-    game.make_move(&Move::from_lan("g2g4", 8, 8).expect("outcome_checkmate_black_wins: failed to parse g2g4"));
-    game.make_move(&Move::from_lan("d8h4", 8, 8).expect("outcome_checkmate_black_wins: failed to parse d8h4"));
+    game.make_move(
+        &Move::from_lan("f2f3", 8, 8).expect("outcome_checkmate_black_wins: failed to parse f2f3"),
+    );
+    game.make_move(
+        &Move::from_lan("e7e5", 8, 8).expect("outcome_checkmate_black_wins: failed to parse e7e5"),
+    );
+    game.make_move(
+        &Move::from_lan("g2g4", 8, 8).expect("outcome_checkmate_black_wins: failed to parse g2g4"),
+    );
+    game.make_move(
+        &Move::from_lan("d8h4", 8, 8).expect("outcome_checkmate_black_wins: failed to parse d8h4"),
+    );
 
     assert!(game.is_checkmate());
     assert_eq!(game.outcome(), Some(GameOutcome::BlackWin));
@@ -119,14 +141,29 @@ fn outcome_stalemate() {
 fn halfmove_clock_reset_on_pawn_move() {
     let mut game = Game8x8::standard();
 
-    game.make_move(&Move::from_lan("g1f3", 8, 8).expect("halfmove_clock_reset_on_pawn_move: failed to parse g1f3"));
-    game.make_move(&Move::from_lan("g8f6", 8, 8).expect("halfmove_clock_reset_on_pawn_move: failed to parse g8f6"));
-    game.make_move(&Move::from_lan("f3g1", 8, 8).expect("halfmove_clock_reset_on_pawn_move: failed to parse f3g1"));
-    game.make_move(&Move::from_lan("f6g8", 8, 8).expect("halfmove_clock_reset_on_pawn_move: failed to parse f6g8"));
+    game.make_move(
+        &Move::from_lan("g1f3", 8, 8)
+            .expect("halfmove_clock_reset_on_pawn_move: failed to parse g1f3"),
+    );
+    game.make_move(
+        &Move::from_lan("g8f6", 8, 8)
+            .expect("halfmove_clock_reset_on_pawn_move: failed to parse g8f6"),
+    );
+    game.make_move(
+        &Move::from_lan("f3g1", 8, 8)
+            .expect("halfmove_clock_reset_on_pawn_move: failed to parse f3g1"),
+    );
+    game.make_move(
+        &Move::from_lan("f6g8", 8, 8)
+            .expect("halfmove_clock_reset_on_pawn_move: failed to parse f6g8"),
+    );
 
     assert_eq!(game.halfmove_clock, 4);
 
-    game.make_move(&Move::from_lan("e2e4", 8, 8).expect("halfmove_clock_reset_on_pawn_move: failed to parse e2e4"));
+    game.make_move(
+        &Move::from_lan("e2e4", 8, 8)
+            .expect("halfmove_clock_reset_on_pawn_move: failed to parse e2e4"),
+    );
     assert_eq!(game.halfmove_clock, 0);
 }
 
@@ -134,15 +171,30 @@ fn halfmove_clock_reset_on_pawn_move() {
 fn halfmove_clock_reset_on_capture() {
     let mut game = Game8x8::standard();
 
-    game.make_move(&Move::from_lan("e2e4", 8, 8).expect("halfmove_clock_reset_on_capture: failed to parse e2e4"));
-    game.make_move(&Move::from_lan("d7d5", 8, 8).expect("halfmove_clock_reset_on_capture: failed to parse d7d5"));
+    game.make_move(
+        &Move::from_lan("e2e4", 8, 8)
+            .expect("halfmove_clock_reset_on_capture: failed to parse e2e4"),
+    );
+    game.make_move(
+        &Move::from_lan("d7d5", 8, 8)
+            .expect("halfmove_clock_reset_on_capture: failed to parse d7d5"),
+    );
     assert_eq!(game.halfmove_clock, 0);
 
-    game.make_move(&Move::from_lan("g1f3", 8, 8).expect("halfmove_clock_reset_on_capture: failed to parse g1f3"));
-    game.make_move(&Move::from_lan("b8c6", 8, 8).expect("halfmove_clock_reset_on_capture: failed to parse b8c6"));
+    game.make_move(
+        &Move::from_lan("g1f3", 8, 8)
+            .expect("halfmove_clock_reset_on_capture: failed to parse g1f3"),
+    );
+    game.make_move(
+        &Move::from_lan("b8c6", 8, 8)
+            .expect("halfmove_clock_reset_on_capture: failed to parse b8c6"),
+    );
     assert_eq!(game.halfmove_clock, 2);
 
-    game.make_move(&Move::from_lan("e4d5", 8, 8).expect("halfmove_clock_reset_on_capture: failed to parse e4d5"));
+    game.make_move(
+        &Move::from_lan("e4d5", 8, 8)
+            .expect("halfmove_clock_reset_on_capture: failed to parse e4d5"),
+    );
     assert_eq!(game.halfmove_clock, 0);
 }
 
@@ -155,9 +207,15 @@ fn castling_rights_methods() {
     assert!(game.castling_rights().has_kingside(Color::Black));
     assert!(game.castling_rights().has_queenside(Color::Black));
 
-    game.make_move(&Move::from_lan("e2e3", 8, 8).expect("castling_rights_methods: failed to parse e2e3"));
-    game.make_move(&Move::from_lan("e7e6", 8, 8).expect("castling_rights_methods: failed to parse e7e6"));
-    game.make_move(&Move::from_lan("e1e2", 8, 8).expect("castling_rights_methods: failed to parse e1e2"));
+    game.make_move(
+        &Move::from_lan("e2e3", 8, 8).expect("castling_rights_methods: failed to parse e2e3"),
+    );
+    game.make_move(
+        &Move::from_lan("e7e6", 8, 8).expect("castling_rights_methods: failed to parse e7e6"),
+    );
+    game.make_move(
+        &Move::from_lan("e1e2", 8, 8).expect("castling_rights_methods: failed to parse e1e2"),
+    );
 
     assert!(!game.castling_rights().has_kingside(Color::White));
     assert!(!game.castling_rights().has_queenside(Color::White));
@@ -187,7 +245,9 @@ fn castling_rights_rook_move() {
         Some(Piece::new(PieceType::Rook, Color::White)),
     );
 
-    game.make_move(&Move::from_lan("a1a2", 8, 8).expect("castling_rights_rook_move: failed to parse a1a2"));
+    game.make_move(
+        &Move::from_lan("a1a2", 8, 8).expect("castling_rights_rook_move: failed to parse a1a2"),
+    );
 
     assert!(game.castling_rights().has_kingside(Color::White));
     assert!(!game.castling_rights().has_queenside(Color::White));

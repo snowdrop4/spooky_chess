@@ -1,8 +1,8 @@
 use crate::color::Color;
-use crate::directions::{direction_index, KNIGHT_DELTAS};
+use crate::directions::{KNIGHT_DELTAS, direction_index};
 use crate::game::Game;
-use crate::pieces::PieceType;
 use crate::r#move::Move;
+use crate::pieces::PieceType;
 
 /// Number of planes for piece positions (6 for WHITE + 6 for BLACK)
 const PIECE_PLANES: usize = 6 + 6;
@@ -255,39 +255,41 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
     // Underpromotions (only for non-queen promotions)
     // Note: underpromotions are forward by 1 row only (dy = ±1 depending on perspective)
     if let Some(promo) = move_.promotion
-        && promo != PieceType::Queen && dy.abs() == 1 {
-            let direction_idx = if dx == -1 {
-                0 // left diagonal
-            } else if dx == 0 {
-                1 // straight
-            } else if dx == 1 {
-                2 // right diagonal
-            } else {
-                return None;
-            };
+        && promo != PieceType::Queen
+        && dy.abs() == 1
+    {
+        let direction_idx = if dx == -1 {
+            0 // left diagonal
+        } else if dx == 0 {
+            1 // straight
+        } else if dx == 1 {
+            2 // right diagonal
+        } else {
+            return None;
+        };
 
-            let piece_idx = match promo {
-                PieceType::Knight => 0,
-                PieceType::Bishop => 1,
-                PieceType::Rook => 2,
-                _ => return None,
-            };
+        let piece_idx = match promo {
+            PieceType::Knight => 0,
+            PieceType::Bishop => 1,
+            PieceType::Rook => 2,
+            _ => return None,
+        };
 
-            // Store which direction (forward/backward) in the encoding
-            let knight_planes_start = NUM_DIRECTIONS * max_distance;
-            let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_DELTAS;
-            let dir_offset = if dy > 0 {
-                0
-            } else {
-                NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES
-            };
-            return Some(
-                underpromo_planes_start
-                    + dir_offset
-                    + direction_idx * NUM_UNDERPROMO_PIECES
-                    + piece_idx,
-            );
-        }
+        // Store which direction (forward/backward) in the encoding
+        let knight_planes_start = NUM_DIRECTIONS * max_distance;
+        let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_DELTAS;
+        let dir_offset = if dy > 0 {
+            0
+        } else {
+            NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES
+        };
+        return Some(
+            underpromo_planes_start
+                + dir_offset
+                + direction_idx * NUM_UNDERPROMO_PIECES
+                + piece_idx,
+        );
+    }
 
     // Horizontal/vertical/diagonal moves for all non-knight pieces
     // Verify it's actually a straight/diagonal move (not an arbitrary direction)
@@ -662,10 +664,10 @@ mod tests {
 
     #[test]
     fn test_fuzz_move_encoding_random_games() {
-        use rand::prelude::IndexedRandom;
         use rand::SeedableRng;
-        use std::sync::atomic::{AtomicU64, Ordering};
+        use rand::prelude::IndexedRandom;
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicU64, Ordering};
         use std::thread;
 
         let num_games = 5_000;
@@ -683,172 +685,181 @@ mod tests {
             let moves_played = Arc::clone(&total_moves_played);
             let moves_tested = Arc::clone(&total_moves_tested);
 
-            let handle =
-                thread::spawn(move || {
-                    let mut rng = rand::rngs::StdRng::seed_from_u64(thread_id as u64);
-                    let mut thread_moves_played = 0u64;
-                    let mut thread_moves_tested = 0u64;
+            let handle = thread::spawn(move || {
+                let mut rng = rand::rngs::StdRng::seed_from_u64(thread_id as u64);
+                let mut thread_moves_played = 0u64;
+                let mut thread_moves_tested = 0u64;
 
-                    for _game_num in 0..games_per_thread {
-                        let mut game = Game::standard();
-                        let max_moves = 200;
+                for _game_num in 0..games_per_thread {
+                    let mut game = Game::standard();
+                    let max_moves = 200;
 
-                        for _move_num in 0..max_moves {
-                            if game.is_over() {
-                                break;
-                            }
+                    for _move_num in 0..max_moves {
+                        if game.is_over() {
+                            break;
+                        }
 
-                            let legal_moves = game.legal_moves();
-                            if legal_moves.is_empty() {
-                                break;
-                            }
+                        let legal_moves = game.legal_moves();
+                        if legal_moves.is_empty() {
+                            break;
+                        }
 
-                            // Test encoding for all legal moves
-                            let width = 8;
-                            let height = 8;
-                            let total_actions = get_total_actions(width, height);
-                            let mut seen_actions = std::collections::HashSet::new();
+                        // Test encoding for all legal moves
+                        let width = 8;
+                        let height = 8;
+                        let total_actions = get_total_actions(width, height);
+                        let mut seen_actions = std::collections::HashSet::new();
 
-                            for move_ in &legal_moves {
-                                // Test plane encoding
-                                let encoded = encode_move_plane(move_, width, height);
-                                assert!(
-                                    encoded.is_some(),
-                                    "Failed to encode move {} in position {}",
-                                    move_.to_lan(),
-                                    game.to_fen()
-                                );
+                        for move_ in &legal_moves {
+                            // Test plane encoding
+                            let encoded = encode_move_plane(move_, width, height);
+                            assert!(
+                                encoded.is_some(),
+                                "Failed to encode move {} in position {}",
+                                move_.to_lan(),
+                                game.to_fen()
+                            );
 
-                                let plane_idx = encoded.expect("test_fuzz_move_encoding_random_games: failed to encode move plane");
-                                let decoded = decode_move_plane(plane_idx, width, height);
-                                assert!(
-                                    decoded.is_some(),
-                                    "Failed to decode plane {} for move {}",
-                                    plane_idx,
-                                    move_.to_lan()
-                                );
+                            let plane_idx = encoded.expect(
+                                "test_fuzz_move_encoding_random_games: failed to encode move plane",
+                            );
+                            let decoded = decode_move_plane(plane_idx, width, height);
+                            assert!(
+                                decoded.is_some(),
+                                "Failed to decode plane {} for move {}",
+                                plane_idx,
+                                move_.to_lan()
+                            );
 
-                                let (dx, dy, promo) = decoded.expect("test_fuzz_move_encoding_random_games: failed to decode move plane");
+                            let (dx, dy, promo) = decoded.expect(
+                                "test_fuzz_move_encoding_random_games: failed to decode move plane",
+                            );
 
-                                // Verify deltas
-                                let expected_dx = move_.dst.col as i32 - move_.src.col as i32;
-                                let expected_dy = move_.dst.row as i32 - move_.src.row as i32;
+                            // Verify deltas
+                            let expected_dx = move_.dst.col as i32 - move_.src.col as i32;
+                            let expected_dy = move_.dst.row as i32 - move_.src.row as i32;
 
-                                assert_eq!(
-                                    dx,
-                                    expected_dx,
-                                    "Move {}: decoded dx {} != expected {}",
-                                    move_.to_lan(),
-                                    dx,
-                                    expected_dx
-                                );
-                                assert_eq!(
-                                    dy,
-                                    expected_dy,
-                                    "Move {}: decoded dy {} != expected {}",
-                                    move_.to_lan(),
-                                    dy,
-                                    expected_dy
-                                );
+                            assert_eq!(
+                                dx,
+                                expected_dx,
+                                "Move {}: decoded dx {} != expected {}",
+                                move_.to_lan(),
+                                dx,
+                                expected_dx
+                            );
+                            assert_eq!(
+                                dy,
+                                expected_dy,
+                                "Move {}: decoded dy {} != expected {}",
+                                move_.to_lan(),
+                                dy,
+                                expected_dy
+                            );
 
-                                // Verify promotion (queen promotions should decode as None)
-                                if let Some(move_promo) = move_.promotion {
-                                    if move_promo != PieceType::Queen {
-                                        assert_eq!(
-                                            promo,
-                                            Some(move_promo),
-                                            "Move {}: decoded promotion {:?} != expected {:?}",
-                                            move_.to_lan(),
-                                            promo,
-                                            Some(move_promo)
-                                        );
-                                    } else {
-                                        assert_eq!(
-                                        promo, None,
-                                        "Move {}: queen promotion should decode as None, got {:?}",
-                                        move_.to_lan(), promo
+                            // Verify promotion (queen promotions should decode as None)
+                            if let Some(move_promo) = move_.promotion {
+                                if move_promo != PieceType::Queen {
+                                    assert_eq!(
+                                        promo,
+                                        Some(move_promo),
+                                        "Move {}: decoded promotion {:?} != expected {:?}",
+                                        move_.to_lan(),
+                                        promo,
+                                        Some(move_promo)
                                     );
-                                    }
                                 } else {
                                     assert_eq!(
                                         promo,
                                         None,
-                                        "Move {}: expected no promotion, got {:?}",
+                                        "Move {}: queen promotion should decode as None, got {:?}",
                                         move_.to_lan(),
                                         promo
                                     );
                                 }
-
-                                // Test full action encoding
-                                let action = encode_action(move_, width, height);
-                                assert!(
-                                    action.is_some(),
-                                    "Failed to encode action for move {} in position {}",
+                            } else {
+                                assert_eq!(
+                                    promo,
+                                    None,
+                                    "Move {}: expected no promotion, got {:?}",
                                     move_.to_lan(),
-                                    game.to_fen()
+                                    promo
                                 );
-                                let action_idx = action.expect("test_fuzz_move_encoding_random_games: failed to encode full action");
-                                assert!(
-                                    action_idx < total_actions,
-                                    "Action index {} out of range (total: {}) for move {}",
-                                    action_idx,
-                                    total_actions,
-                                    move_.to_lan()
-                                );
-
-                                // Verify no action collisions
-                                assert!(
-                                    seen_actions.insert(action_idx),
-                                    "Action collision: action {} for move {} in position {}",
-                                    action_idx,
-                                    move_.to_lan(),
-                                    game.to_fen()
-                                );
-
-                                // Verify action roundtrip: decode action back to src/dst
-                                let decoded_plane = action_idx / (width * height);
-                                let src_index = action_idx % (width * height);
-                                let decoded_src_col = src_index % width;
-                                let decoded_src_row = src_index / width;
-                                assert_eq!(
-                                    decoded_src_col,
-                                    move_.src.col,
-                                    "Action roundtrip: src_col mismatch for move {}",
-                                    move_.to_lan()
-                                );
-                                assert_eq!(
-                                    decoded_src_row,
-                                    move_.src.row,
-                                    "Action roundtrip: src_row mismatch for move {}",
-                                    move_.to_lan()
-                                );
-                                assert_eq!(
-                                    decoded_plane,
-                                    plane_idx,
-                                    "Action roundtrip: plane mismatch for move {}",
-                                    move_.to_lan()
-                                );
-
-                                thread_moves_tested += 1;
                             }
 
-                            // Make a random move
-                            let chosen_move = legal_moves.choose(&mut rng).expect("test_fuzz_move_encoding_random_games: legal moves must not be empty");
-                            game.make_move_unchecked(chosen_move);
+                            // Test full action encoding
+                            let action = encode_action(move_, width, height);
+                            assert!(
+                                action.is_some(),
+                                "Failed to encode action for move {} in position {}",
+                                move_.to_lan(),
+                                game.to_fen()
+                            );
+                            let action_idx = action.expect("test_fuzz_move_encoding_random_games: failed to encode full action");
+                            assert!(
+                                action_idx < total_actions,
+                                "Action index {} out of range (total: {}) for move {}",
+                                action_idx,
+                                total_actions,
+                                move_.to_lan()
+                            );
 
-                            thread_moves_played += 1;
+                            // Verify no action collisions
+                            assert!(
+                                seen_actions.insert(action_idx),
+                                "Action collision: action {} for move {} in position {}",
+                                action_idx,
+                                move_.to_lan(),
+                                game.to_fen()
+                            );
+
+                            // Verify action roundtrip: decode action back to src/dst
+                            let decoded_plane = action_idx / (width * height);
+                            let src_index = action_idx % (width * height);
+                            let decoded_src_col = src_index % width;
+                            let decoded_src_row = src_index / width;
+                            assert_eq!(
+                                decoded_src_col,
+                                move_.src.col,
+                                "Action roundtrip: src_col mismatch for move {}",
+                                move_.to_lan()
+                            );
+                            assert_eq!(
+                                decoded_src_row,
+                                move_.src.row,
+                                "Action roundtrip: src_row mismatch for move {}",
+                                move_.to_lan()
+                            );
+                            assert_eq!(
+                                decoded_plane,
+                                plane_idx,
+                                "Action roundtrip: plane mismatch for move {}",
+                                move_.to_lan()
+                            );
+
+                            thread_moves_tested += 1;
                         }
-                    }
 
-                    moves_played.fetch_add(thread_moves_played, Ordering::Relaxed);
-                    moves_tested.fetch_add(thread_moves_tested, Ordering::Relaxed);
-                });
+                        // Make a random move
+                        let chosen_move = legal_moves.choose(&mut rng).expect(
+                            "test_fuzz_move_encoding_random_games: legal moves must not be empty",
+                        );
+                        game.make_move_unchecked(chosen_move);
+
+                        thread_moves_played += 1;
+                    }
+                }
+
+                moves_played.fetch_add(thread_moves_played, Ordering::Relaxed);
+                moves_tested.fetch_add(thread_moves_tested, Ordering::Relaxed);
+            });
 
             handles.push(handle);
         }
 
         for handle in handles {
-            handle.join().expect("test_fuzz_move_encoding_random_games: worker thread panicked");
+            handle
+                .join()
+                .expect("test_fuzz_move_encoding_random_games: worker thread panicked");
         }
 
         let final_moves_played = total_moves_played.load(Ordering::Relaxed);

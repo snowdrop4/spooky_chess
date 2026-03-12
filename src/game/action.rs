@@ -1,6 +1,6 @@
+use crate::r#move::{Move, MoveFlags};
 use crate::pieces::PieceType;
 use crate::position::Position;
-use crate::r#move::{Move, MoveFlags};
 
 use super::Game;
 

@@ -4,9 +4,11 @@ Rust and Python library for the game of Chess.
 
 # Features
 
-- Supports variable board sizes.
+- Drive external engines with [Universal Chess Interface](https://en.wikipedia.org/wiki/Universal_Chess_Interface).
+- Variable board sizes.
 - Relatively fast.
 - Out-of-the-box support for DL/ML (action encoding and decoding methods).
+- Consistent interface with [spooky-connect4](https://github.com/snowdrop4/spooky-connect4) and [spooky-go](https://github.com/snowdrop4/spooky-go).
 
 # Performance
 

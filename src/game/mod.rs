@@ -3,9 +3,9 @@ use arrayvec::ArrayVec;
 use crate::bitboard::BoardGeometry;
 use crate::board::Board;
 use crate::color::Color;
+use crate::r#move::Move;
 use crate::pieces::Piece;
 use crate::position::Position;
-use crate::r#move::Move;
 
 mod action;
 mod make_move;

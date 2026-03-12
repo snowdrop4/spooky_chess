@@ -18,9 +18,7 @@ impl PyPiece {
             .chars()
             .next()
             .and_then(PieceType::from_char)
-            .ok_or_else(|| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid piece type")
-            })?;
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid piece type"))?;
 
         let c = match color {
             1 => Color::White,

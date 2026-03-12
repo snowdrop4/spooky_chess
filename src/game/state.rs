@@ -1,9 +1,9 @@
 use crate::bitboard::Bitboard;
 use crate::color::Color;
+use crate::r#move::{Move, MoveFlags};
 use crate::outcome::GameOutcome;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
-use crate::r#move::{Move, MoveFlags};
 
 use super::Game;
 
@@ -82,7 +82,10 @@ where
         let mut pseudo_legal = Vec::new();
         let color = self.turn;
         for idx in self.board.color_bb(color).iter_ones() {
-            let pt = self.board.piece_type_at(idx).expect("has_any_legal_move: piece type must exist for color bitboard index");
+            let pt = self
+                .board
+                .piece_type_at(idx)
+                .expect("has_any_legal_move: piece type must exist for color bitboard index");
             let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 
@@ -168,9 +171,10 @@ where
 
         if piece.piece_type == PieceType::Pawn {
             if let Some(ep_square) = self.en_passant
-                && *dst == ep_square {
-                    flags |= MoveFlags::CAPTURE | MoveFlags::EN_PASSANT;
-                }
+                && *dst == ep_square
+            {
+                flags |= MoveFlags::CAPTURE | MoveFlags::EN_PASSANT;
+            }
             if (dst.row as i32 - src.row as i32).abs() == 2 {
                 flags |= MoveFlags::DOUBLE_PUSH;
             }
@@ -378,13 +382,15 @@ where
                     return false;
                 }
                 if let Some(f) = file_hint
-                    && m.src.col != f {
-                        return false;
-                    }
+                    && m.src.col != f
+                {
+                    return false;
+                }
                 if let Some(r) = rank_hint
-                    && m.src.row != r {
-                        return false;
-                    }
+                    && m.src.row != r
+                {
+                    return false;
+                }
                 if let Some(pt) = promo_type {
                     if m.promotion != Some(pt) {
                         return false;
@@ -398,7 +404,10 @@ where
 
         match candidates.len() {
             0 => Err(format!("No legal move matches SAN: {}", san)),
-            1 => Ok(candidates.into_iter().next().expect("move_from_san: candidates vec confirmed to have exactly one element")),
+            1 => Ok(candidates
+                .into_iter()
+                .next()
+                .expect("move_from_san: candidates vec confirmed to have exactly one element")),
             _ => Err(format!(
                 "Ambiguous SAN: {} matches {} moves",
                 san,

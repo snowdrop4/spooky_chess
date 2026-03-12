@@ -1,7 +1,7 @@
 use crate::color::Color;
+use crate::r#move::{Move, MoveFlags};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
-use crate::r#move::{Move, MoveFlags};
 
 use super::{Game, MoveHistoryEntry};
 
@@ -99,7 +99,10 @@ where
                 mv.promotion.is_some(),
                 "PROMOTION flag set but no promotion piece type specified",
             );
-            Piece::new(mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION), piece.color)
+            Piece::new(
+                mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION),
+                piece.color,
+            )
         } else {
             *piece
         };

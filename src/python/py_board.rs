@@ -1,9 +1,9 @@
 use pyo3::prelude::*;
 
-use crate::position::Position;
 use super::dispatch::*;
 use super::py_piece::PyPiece;
 use super::validate_dimensions;
+use crate::position::Position;
 
 #[pyclass(name = "Board")]
 #[derive(Clone)]

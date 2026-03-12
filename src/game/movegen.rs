@@ -1,8 +1,8 @@
 use crate::bitboard::{Bitboard, DirStep};
 use crate::color::Color;
+use crate::r#move::{Move, MoveFlags};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
-use crate::r#move::{Move, MoveFlags};
 
 use super::Game;
 
@@ -58,7 +58,9 @@ where
                     "CAPTURE flag set but no piece at destination index {}",
                     dst_idx,
                 );
-                let pt = self.board.piece_type_at(dst_idx).expect("is_pseudo_legal_move_legal: piece type must exist at capture destination");
+                let pt = self.board.piece_type_at(dst_idx).expect(
+                    "is_pseudo_legal_move_legal: piece type must exist at capture destination",
+                );
                 Some(Piece::new(pt, opponent))
             } else {
                 None
@@ -89,7 +91,10 @@ where
             self.board.remove_piece(&mv.dst, cap);
         }
         let placed_piece = if mv.flags.contains(MoveFlags::PROMOTION) {
-            Piece::new(mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION), piece.color)
+            Piece::new(
+                mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION),
+                piece.color,
+            )
         } else {
             *piece
         };
@@ -160,7 +165,10 @@ where
 
         let color = self.turn;
         for idx in self.board.color_bb(color).iter_ones() {
-            let pt = self.board.piece_type_at(idx).expect("legal_moves: piece type must exist for color bitboard index");
+            let pt = self
+                .board
+                .piece_type_at(idx)
+                .expect("legal_moves: piece type must exist for color bitboard index");
             let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 

@@ -10,6 +10,7 @@ mod py_outcome;
 mod py_pgn;
 mod py_piece;
 mod py_position;
+mod py_uci;
 
 pub use py_board::PyBoard;
 pub use py_game::PyGame;
@@ -18,6 +19,7 @@ pub use py_outcome::PyGameOutcome;
 pub use py_pgn::{PyPgnGame, py_parse_pgn};
 pub use py_piece::PyPiece;
 pub use py_position::PyPosition;
+pub use py_uci::{PySearchResult, PyUciEngine};
 
 pub(crate) fn validate_dimensions(width: usize, height: usize) -> PyResult<()> {
     if width < 5 || width > 16 {
