@@ -1,5 +1,8 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
+/// Number of bits per word in the bitboard storage.
+const WORD_BITS: usize = 64;
+
 /// A fixed-size bitboard parameterized by the number of u64 words.
 /// `NW` = number of active words = ceil(width*height / 64).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -17,9 +20,9 @@ impl<const NW: usize> Bitboard<NW> {
     /// Single bit set at `index`.
     #[inline]
     pub const fn single(index: usize) -> Self {
-        debug_assert!(index < NW * 64);
+        debug_assert!(index < NW * WORD_BITS);
         let mut bb = Self::empty();
-        bb.words[index / 64] = 1u64 << (index % 64);
+        bb.words[index / WORD_BITS] = 1u64 << (index % WORD_BITS);
         bb
     }
 
@@ -32,29 +35,29 @@ impl<const NW: usize> Bitboard<NW> {
     /// Test whether bit `index` is set.
     #[inline]
     pub const fn get(&self, index: usize) -> bool {
-        debug_assert!(index < NW * 64);
-        (self.words[index / 64] >> (index % 64)) & 1 != 0
+        debug_assert!(index < NW * WORD_BITS);
+        (self.words[index / WORD_BITS] >> (index % WORD_BITS)) & 1 != 0
     }
 
     /// Return the bit at `index` as a `u64` (0 or 1). Branchless.
     #[inline]
     pub const fn bit_at(&self, index: usize) -> u64 {
-        debug_assert!(index < NW * 64);
-        (self.words[index / 64] >> (index % 64)) & 1
+        debug_assert!(index < NW * WORD_BITS);
+        (self.words[index / WORD_BITS] >> (index % WORD_BITS)) & 1
     }
 
     /// Set bit `index` to 1.
     #[inline]
     pub const fn set(&mut self, index: usize) {
-        debug_assert!(index < NW * 64);
-        self.words[index / 64] |= 1u64 << (index % 64);
+        debug_assert!(index < NW * WORD_BITS);
+        self.words[index / WORD_BITS] |= 1u64 << (index % WORD_BITS);
     }
 
     /// Clear bit `index` to 0.
     #[inline]
     pub const fn clear(&mut self, index: usize) {
-        debug_assert!(index < NW * 64);
-        self.words[index / 64] &= !(1u64 << (index % 64));
+        debug_assert!(index < NW * WORD_BITS);
+        self.words[index / WORD_BITS] &= !(1u64 << (index % WORD_BITS));
     }
 
     /// True if no bits are set.
@@ -90,7 +93,7 @@ impl<const NW: usize> Bitboard<NW> {
         while i < NW {
             let w = self.words[i];
             if w != 0 {
-                return Some(i * 64 + w.trailing_zeros() as usize);
+                return Some(i * WORD_BITS + w.trailing_zeros() as usize);
             }
             i += 1;
         }
@@ -105,7 +108,9 @@ impl<const NW: usize> Bitboard<NW> {
         while i > 0 {
             i -= 1;
             if self.words[i] != 0 {
-                return Some(i * 64 + (63 - self.words[i].leading_zeros() as usize));
+                return Some(
+                    i * WORD_BITS + (WORD_BITS - 1 - self.words[i].leading_zeros() as usize),
+                );
             }
         }
         None
@@ -118,11 +123,11 @@ impl<const NW: usize> Bitboard<NW> {
         if n == 0 {
             return *self;
         }
-        if n >= NW * 64 {
+        if n >= NW * WORD_BITS {
             return Self::empty();
         }
-        let word_shift = n / 64;
-        let bit_shift = n % 64;
+        let word_shift = n / WORD_BITS;
+        let bit_shift = n % WORD_BITS;
         let mut out = [0u64; NW];
 
         if bit_shift == 0 {
@@ -136,7 +141,7 @@ impl<const NW: usize> Bitboard<NW> {
             while i < NW {
                 out[i] = self.words[i - word_shift] << bit_shift;
                 if i > word_shift {
-                    out[i] |= self.words[i - word_shift - 1] >> (64 - bit_shift);
+                    out[i] |= self.words[i - word_shift - 1] >> (WORD_BITS - bit_shift);
                 }
                 i += 1;
             }
@@ -151,11 +156,11 @@ impl<const NW: usize> Bitboard<NW> {
         if n == 0 {
             return *self;
         }
-        if n >= NW * 64 {
+        if n >= NW * WORD_BITS {
             return Self::empty();
         }
-        let word_shift = n / 64;
-        let bit_shift = n % 64;
+        let word_shift = n / WORD_BITS;
+        let bit_shift = n % WORD_BITS;
         let mut out = [0u64; NW];
 
         if bit_shift == 0 {
@@ -169,7 +174,7 @@ impl<const NW: usize> Bitboard<NW> {
             while i < NW - word_shift {
                 out[i] = self.words[i + word_shift] >> bit_shift;
                 if i + word_shift + 1 < NW {
-                    out[i] |= self.words[i + word_shift + 1] << (64 - bit_shift);
+                    out[i] |= self.words[i + word_shift + 1] << (WORD_BITS - bit_shift);
                 }
                 i += 1;
             }
@@ -338,7 +343,7 @@ impl<const NW: usize> Iterator for BitIterator<NW> {
                 let bit = w.trailing_zeros() as usize;
                 // Clear lowest set bit
                 self.words[wi] = w & (w - 1);
-                return Some(wi * 64 + bit);
+                return Some(wi * WORD_BITS + bit);
             }
             self.word_index += 1;
         }
@@ -714,9 +719,13 @@ where
             return full_ray;
         }
         let first_blocker = if is_left {
-            blockers.lowest_bit_index().expect("blockers confirmed non-empty")
+            blockers
+                .lowest_bit_index()
+                .expect("blockers confirmed non-empty")
         } else {
-            blockers.highest_bit_index().expect("blockers confirmed non-empty")
+            blockers
+                .highest_bit_index()
+                .expect("blockers confirmed non-empty")
         };
         full_ray ^ ray_table[dir_idx][first_blocker]
     }

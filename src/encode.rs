@@ -31,6 +31,12 @@ pub const NUM_UNDERPROMO_PIECES: usize = 3;
 /// Number of promotion move directions (forward, backward)
 pub const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 
+/// Normalization divisor for fullmove number in the NN input planes.
+const FULLMOVE_SCALE: f32 = 100.0;
+
+/// Normalization divisor for halfmove clock (no-progress count) in the NN input planes.
+const HALFMOVE_SCALE: f32 = 50.0;
+
 /// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
 /// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
 #[hotpath::measure]
@@ -78,24 +84,43 @@ where
         history_len,
     );
 
-    // Constant planes start at index: HISTORY_LENGTH * PIECE_PLANES
+    // Constant plane layout (relative to constant_start):
+    const PLANE_REPETITION_1: usize = 0;
+    const PLANE_REPETITION_2: usize = 1;
+    const PLANE_COLOR: usize = 2;
+    const PLANE_MOVE_COUNT: usize = 3;
+    const PLANE_P1_KINGSIDE: usize = 4;
+    const PLANE_P1_QUEENSIDE: usize = 5;
+    const PLANE_P2_KINGSIDE: usize = 6;
+    const PLANE_P2_QUEENSIDE: usize = 7;
+    const PLANE_NO_PROGRESS: usize = 8;
+
     let constant_start = HISTORY_LENGTH * PIECE_PLANES;
 
-    // Repetition count planes (2 planes) - zeros for now
+    // Repetition count planes - zeros for now (PLANE_REPETITION_1, PLANE_REPETITION_2)
+    let _ = (PLANE_REPETITION_1, PLANE_REPETITION_2);
 
     // Color plane
-    let color_plane = constant_start + 2;
     let color_value = if perspective == Color::White {
         1.0
     } else {
         0.0
     };
-    fill_constant_plane(&mut data, color_plane, color_value, board_size);
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_COLOR,
+        color_value,
+        board_size,
+    );
 
     // Total move count plane
-    let move_plane = constant_start + 3;
-    let move_count = game.fullmove_number() as f32 / 100.0;
-    fill_constant_plane(&mut data, move_plane, move_count, board_size);
+    let move_count = game.fullmove_number() as f32 / FULLMOVE_SCALE;
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_MOVE_COUNT,
+        move_count,
+        board_size,
+    );
 
     // Castling rights (4 planes)
     let castling_rights = game.castling_rights();
@@ -105,32 +130,57 @@ where
     } else {
         0.0
     };
-    fill_constant_plane(&mut data, constant_start + 4, p1_kingside, board_size);
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_P1_KINGSIDE,
+        p1_kingside,
+        board_size,
+    );
 
     let p1_queenside = if castling_rights.has_queenside(perspective) {
         1.0
     } else {
         0.0
     };
-    fill_constant_plane(&mut data, constant_start + 5, p1_queenside, board_size);
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_P1_QUEENSIDE,
+        p1_queenside,
+        board_size,
+    );
 
     let p2_kingside = if castling_rights.has_kingside(opponent) {
         1.0
     } else {
         0.0
     };
-    fill_constant_plane(&mut data, constant_start + 6, p2_kingside, board_size);
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_P2_KINGSIDE,
+        p2_kingside,
+        board_size,
+    );
 
     let p2_queenside = if castling_rights.has_queenside(opponent) {
         1.0
     } else {
         0.0
     };
-    fill_constant_plane(&mut data, constant_start + 7, p2_queenside, board_size);
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_P2_QUEENSIDE,
+        p2_queenside,
+        board_size,
+    );
 
     // No-progress count plane
-    let no_progress = game.halfmove_clock() as f32 / 50.0;
-    fill_constant_plane(&mut data, constant_start + 8, no_progress, board_size);
+    let no_progress = game.halfmove_clock() as f32 / HALFMOVE_SCALE;
+    fill_constant_plane(
+        &mut data,
+        constant_start + PLANE_NO_PROGRESS,
+        no_progress,
+        board_size,
+    );
 
     (data, num_planes, H, W)
 }

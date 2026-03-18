@@ -165,9 +165,13 @@ where
         }
 
         let first_idx = if is_left {
-            blockers.lowest_bit_index().expect("blockers confirmed non-empty")
+            blockers
+                .lowest_bit_index()
+                .expect("blockers confirmed non-empty")
         } else {
-            blockers.highest_bit_index().expect("blockers confirmed non-empty")
+            blockers
+                .highest_bit_index()
+                .expect("blockers confirmed non-empty")
         };
         let first_bb = Bitboard::single(first_idx);
 
@@ -182,9 +186,13 @@ where
             let beyond_blockers = beyond & occupied;
             if !beyond_blockers.is_empty() {
                 let second_idx = if is_left {
-                    beyond_blockers.lowest_bit_index().expect("beyond_blockers confirmed non-empty")
+                    beyond_blockers
+                        .lowest_bit_index()
+                        .expect("beyond_blockers confirmed non-empty")
                 } else {
-                    beyond_blockers.highest_bit_index().expect("beyond_blockers confirmed non-empty")
+                    beyond_blockers
+                        .highest_bit_index()
+                        .expect("beyond_blockers confirmed non-empty")
                 };
                 if !(Bitboard::single(second_idx) & enemy_sliders).is_empty() {
                     // Pin detected
