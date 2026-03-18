@@ -16,9 +16,9 @@ pyo3 = { version = "0.26", features = ["extension-module"], optional = true }
 bitflags = "2.11"
 arrayvec = "0.7"
 paste = "1.0"
-hotpath = { version = "0.13" }
-tree-sitter = { version = "0.25" }
-tree-sitter-pgn = { git = "https://github.com/rolandwalker/tree-sitter-pgn", rev = "9f8e1a9" }
+hotpath = "0.13"
+tree-sitter = "0.25"
+tree-sitter-pgn = "1.4.3"
 
 [features]
 default = []
