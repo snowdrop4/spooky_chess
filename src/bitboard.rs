@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 /// A fixed-size bitboard parameterized by the number of u64 words.
 /// `NW` = number of active words = ceil(width*height / 64).
@@ -93,6 +93,20 @@ impl<const NW: usize> Bitboard<NW> {
                 return Some(i * 64 + w.trailing_zeros() as usize);
             }
             i += 1;
+        }
+        None
+    }
+
+    /// Index of the highest set bit, or `None` if empty.
+    #[inline]
+    #[hotpath::measure]
+    pub fn highest_bit_index(&self) -> Option<usize> {
+        let mut i = NW;
+        while i > 0 {
+            i -= 1;
+            if self.words[i] != 0 {
+                return Some(i * 64 + (63 - self.words[i].leading_zeros() as usize));
+            }
         }
         None
     }
@@ -199,6 +213,18 @@ impl<const NW: usize> Bitboard<NW> {
         Bitboard { words: out }
     }
 
+    /// Const bitwise XOR.
+    #[inline]
+    pub const fn c_xor(self, rhs: Self) -> Self {
+        let mut out = [0u64; NW];
+        let mut i = 0;
+        while i < NW {
+            out[i] = self.words[i] ^ rhs.words[i];
+            i += 1;
+        }
+        Bitboard { words: out }
+    }
+
     /// Const bitwise NOT.
     #[inline]
     pub const fn c_not(self) -> Self {
@@ -270,6 +296,27 @@ impl<const NW: usize> Not for Bitboard<NW> {
     #[inline]
     fn not(self) -> Bitboard<NW> {
         self.c_not()
+    }
+}
+
+#[hotpath::measure_all]
+impl<const NW: usize> BitXor for Bitboard<NW> {
+    type Output = Bitboard<NW>;
+    #[inline]
+    fn bitxor(self, rhs: Bitboard<NW>) -> Bitboard<NW> {
+        self.c_xor(rhs)
+    }
+}
+
+#[hotpath::measure_all]
+impl<const NW: usize> BitXorAssign for Bitboard<NW> {
+    #[inline]
+    fn bitxor_assign(&mut self, rhs: Bitboard<NW>) {
+        let mut i = 0;
+        while i < NW {
+            self.words[i] ^= rhs.words[i];
+            i += 1;
+        }
     }
 }
 
@@ -345,6 +392,10 @@ where
     knight_attacks_table: [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
     pawn_attacks_white_table: [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
     pawn_attacks_black_table: [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
+    /// Precomputed full unblocked rays for orthogonal directions (N, S, E, W).
+    ray_orthogonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
+    /// Precomputed full unblocked rays for diagonal directions (NE, NW, SE, SW).
+    ray_diagonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
 }
 
 impl<const W: usize, const H: usize> BoardGeometry<W, H>
@@ -468,6 +519,9 @@ where
         let mut pawn_w_table: [Bb<{ (W * H).div_ceil(64) }>; W * H] = [Bb::empty(); W * H];
         let mut pawn_b_table: [Bb<{ (W * H).div_ceil(64) }>; W * H] = [Bb::empty(); W * H];
 
+        let mut ray_ortho: [[Bb<{ (W * H).div_ceil(64) }>; W * H]; 4] = [[Bb::empty(); W * H]; 4];
+        let mut ray_diag: [[Bb<{ (W * H).div_ceil(64) }>; W * H]; 4] = [[Bb::empty(); W * H]; 4];
+
         let mut idx = 0;
         while idx < area {
             let sq = Bb::single(idx);
@@ -490,6 +544,32 @@ where
                 not_col_first,
                 not_col_last,
             );
+
+            // Ray tables for orthogonal directions
+            let mut d = 0;
+            while d < 4 {
+                ray_ortho[d][idx] = Self::compute_ray_const(
+                    idx,
+                    orthogonal_steps[d].shift,
+                    orthogonal_steps[d].left,
+                    orthogonal_steps[d].mask,
+                    board_mask,
+                );
+                d += 1;
+            }
+            // Ray tables for diagonal directions
+            d = 0;
+            while d < 4 {
+                ray_diag[d][idx] = Self::compute_ray_const(
+                    idx,
+                    diagonal_steps[d].shift,
+                    diagonal_steps[d].left,
+                    diagonal_steps[d].mask,
+                    board_mask,
+                );
+                d += 1;
+            }
+
             idx += 1;
         }
 
@@ -505,6 +585,8 @@ where
             knight_attacks_table: knight_table,
             pawn_attacks_white_table: pawn_w_table,
             pawn_attacks_black_table: pawn_b_table,
+            ray_orthogonal: ray_ortho,
+            ray_diagonal: ray_diag,
         }
     }
 
@@ -579,31 +661,83 @@ where
         }
     }
 
-    /// Cast a ray from `src` in direction `dir`, stopping at blockers in `occupied`.
-    /// The ray includes blocker squares (for captures) but does not pass through them.
-    #[inline]
-    pub fn ray_attacks(
-        &self,
-        src: Bitboard<{ (W * H).div_ceil(64) }>,
-        dir: &DirStep<{ (W * H).div_ceil(64) }>,
-        occupied: Bitboard<{ (W * H).div_ceil(64) }>,
+    /// Compute the full unblocked ray from a square in a given direction.
+    const fn compute_ray_const(
+        sq_idx: usize,
+        shift: usize,
+        left: bool,
+        mask: Bitboard<{ (W * H).div_ceil(64) }>,
+        board_mask: Bitboard<{ (W * H).div_ceil(64) }>,
     ) -> Bitboard<{ (W * H).div_ceil(64) }> {
-        debug_assert!(
-            src.count() == 1,
-            "ray_attacks: src must be a single bit, got {} bits",
-            src.count(),
-        );
-        let mut attacks = Bitboard::empty();
-        let mut cursor = dir.step(src);
-        let max_steps = W.max(H);
-        for _ in 0..max_steps {
+        let mut ray = Bitboard::empty();
+        let mut cursor = Bitboard::single(sq_idx);
+        let max_steps = if W > H { W } else { H };
+        let mut step = 0;
+        while step < max_steps {
+            cursor = if left {
+                cursor.shift_left(shift).c_and(mask).c_and(board_mask)
+            } else {
+                cursor.shift_right(shift).c_and(mask).c_and(board_mask)
+            };
             if cursor.is_empty() {
                 break;
             }
-            attacks |= cursor;
-            cursor = dir.step(cursor.andnot(occupied));
+            ray = ray.c_or(cursor);
+            step += 1;
         }
-        attacks
+        ray
+    }
+
+    /// Compute sliding attacks for a single ray direction using the ray difference trick.
+    /// `is_left` = true for rays toward higher indices (use LSB for first blocker),
+    /// false for rays toward lower indices (use MSB).
+    #[inline]
+    fn sliding_ray_attacks(
+        sq_idx: usize,
+        dir_idx: usize,
+        ray_table: &[[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
+        is_left: bool,
+        occupied: Bitboard<{ (W * H).div_ceil(64) }>,
+    ) -> Bitboard<{ (W * H).div_ceil(64) }> {
+        let full_ray = ray_table[dir_idx][sq_idx];
+        let blockers = full_ray & occupied;
+        if blockers.is_empty() {
+            return full_ray;
+        }
+        let first_blocker = if is_left {
+            blockers.lowest_bit_index().unwrap()
+        } else {
+            blockers.highest_bit_index().unwrap()
+        };
+        full_ray ^ ray_table[dir_idx][first_blocker]
+    }
+
+    /// Compute all orthogonal sliding attacks (N, S, E, W) from a square.
+    #[inline]
+    pub fn orthogonal_attacks(
+        &self,
+        sq_idx: usize,
+        occupied: Bitboard<{ (W * H).div_ceil(64) }>,
+    ) -> Bitboard<{ (W * H).div_ceil(64) }> {
+        // N=left, S=right, E=left, W=right
+        Self::sliding_ray_attacks(sq_idx, 0, &self.ray_orthogonal, true, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 1, &self.ray_orthogonal, false, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 2, &self.ray_orthogonal, true, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 3, &self.ray_orthogonal, false, occupied)
+    }
+
+    /// Compute all diagonal sliding attacks (NE, NW, SE, SW) from a square.
+    #[inline]
+    pub fn diagonal_attacks(
+        &self,
+        sq_idx: usize,
+        occupied: Bitboard<{ (W * H).div_ceil(64) }>,
+    ) -> Bitboard<{ (W * H).div_ceil(64) }> {
+        // NE=left, NW=left, SE=right, SW=right
+        Self::sliding_ray_attacks(sq_idx, 0, &self.ray_diagonal, true, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 1, &self.ray_diagonal, true, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 2, &self.ray_diagonal, false, occupied)
+            | Self::sliding_ray_attacks(sq_idx, 3, &self.ray_diagonal, false, occupied)
     }
 
     /// Compute the set of all orthogonal neighbors of every bit in `bb`.

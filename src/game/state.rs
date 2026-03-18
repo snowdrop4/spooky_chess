@@ -1,4 +1,3 @@
-use crate::bitboard::Bitboard;
 use crate::color::Color;
 use crate::r#move::{Move, MoveFlags};
 use crate::outcome::GameOutcome;
@@ -16,7 +15,6 @@ where
         let occupied = self.board.occupied();
         let enemy = self.board.color_bb(by_color);
         let sq_idx = square.to_index(W);
-        let sq_bb = Bitboard::single(sq_idx);
         let geo = Self::geo();
 
         // 1. Pawn attacks
@@ -44,22 +42,18 @@ where
         let queens = self.board.piece_type_bb(PieceType::Queen) & enemy;
         let rooks_queens = (self.board.piece_type_bb(PieceType::Rook) & enemy) | queens;
         if !rooks_queens.is_empty() {
-            for dir in &geo.orthogonal_steps {
-                let ray = geo.ray_attacks(sq_bb, dir, occupied);
-                if !(ray & rooks_queens).is_empty() {
-                    return true;
-                }
+            let ortho = geo.orthogonal_attacks(sq_idx, occupied);
+            if !(ortho & rooks_queens).is_empty() {
+                return true;
             }
         }
 
         // 5. Sliding attacks — bishops/queens along diagonals
         let bishops_queens = (self.board.piece_type_bb(PieceType::Bishop) & enemy) | queens;
         if !bishops_queens.is_empty() {
-            for dir in &geo.diagonal_steps {
-                let ray = geo.ray_attacks(sq_bb, dir, occupied);
-                if !(ray & bishops_queens).is_empty() {
-                    return true;
-                }
+            let diag = geo.diagonal_attacks(sq_idx, occupied);
+            if !(diag & bishops_queens).is_empty() {
+                return true;
             }
         }
 

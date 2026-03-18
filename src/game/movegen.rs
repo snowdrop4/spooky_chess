@@ -1,4 +1,4 @@
-use crate::bitboard::{Bitboard, DirStep};
+use crate::bitboard::Bitboard;
 use crate::color::Color;
 use crate::r#move::{Move, MoveFlags};
 use crate::pieces::{Piece, PieceType};
@@ -339,31 +339,25 @@ where
         }
     }
 
-    fn generate_sliding_moves_into(
+    fn generate_sliding_moves_from_attacks_into(
         &self,
         src: &Position,
         piece: &Piece,
-        dirs: &[DirStep<{ (W * H).div_ceil(64) }>],
+        attacks: Bitboard<{ (W * H).div_ceil(64) }>,
         moves: &mut Vec<Move>,
     ) {
         let occupied = self.board.occupied();
         let own_color = self.board.color_bb(piece.color);
-        let src_bb = Bitboard::single(src.to_index(W));
-        let geo = Self::geo();
+        let targets = attacks.andnot(own_color);
 
-        for dir in dirs {
-            let ray = geo.ray_attacks(src_bb, dir, occupied);
-            let targets = ray.andnot(own_color);
-
-            for idx in targets.iter_ones() {
-                let dst = Position::from_index(idx, W);
-                let flags = if occupied.get(idx) {
-                    MoveFlags::CAPTURE
-                } else {
-                    MoveFlags::empty()
-                };
-                moves.push(Move::from_position(*src, dst, flags));
-            }
+        for idx in targets.iter_ones() {
+            let dst = Position::from_index(idx, W);
+            let flags = if occupied.get(idx) {
+                MoveFlags::CAPTURE
+            } else {
+                MoveFlags::empty()
+            };
+            moves.push(Move::from_position(*src, dst, flags));
         }
     }
 
@@ -373,7 +367,10 @@ where
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &Self::geo().diagonal_steps, moves)
+        let geo = Self::geo();
+        let occupied = self.board.occupied();
+        let attacks = geo.diagonal_attacks(src.to_index(W), occupied);
+        self.generate_sliding_moves_from_attacks_into(src, piece, attacks, moves)
     }
 
     fn generate_pseudo_legal_rook_moves_into(
@@ -382,7 +379,10 @@ where
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &Self::geo().orthogonal_steps, moves)
+        let geo = Self::geo();
+        let occupied = self.board.occupied();
+        let attacks = geo.orthogonal_attacks(src.to_index(W), occupied);
+        self.generate_sliding_moves_from_attacks_into(src, piece, attacks, moves)
     }
 
     fn generate_pseudo_legal_queen_moves_into(
@@ -393,8 +393,9 @@ where
     ) {
         let geo = Self::geo();
         let occupied = self.board.occupied();
-        let attacks = geo.orthogonal_attacks(src.to_index(W), occupied)
-            | geo.diagonal_attacks(src.to_index(W), occupied);
+        let attacks =
+            geo.orthogonal_attacks(src.to_index(W), occupied)
+                | geo.diagonal_attacks(src.to_index(W), occupied);
         self.generate_sliding_moves_from_attacks_into(src, piece, attacks, moves)
     }
 
