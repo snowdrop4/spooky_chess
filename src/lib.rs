@@ -47,8 +47,14 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("CONSTANT_PLANES", encode::CONSTANT_PLANES)?;
     m.add("NUM_DIRECTIONS", encode::NUM_DIRECTIONS)?;
     m.add("NUM_KNIGHT_DELTAS", encode::NUM_KNIGHT_DELTAS)?;
-    m.add("NUM_UNDERPROMO_DIRECTIONS", encode::NUM_UNDERPROMO_DIRECTIONS)?;
+    m.add(
+        "NUM_UNDERPROMO_DIRECTIONS",
+        encode::NUM_UNDERPROMO_DIRECTIONS,
+    )?;
     m.add("NUM_UNDERPROMO_PIECES", encode::NUM_UNDERPROMO_PIECES)?;
-    m.add("NUM_PROMOTION_ORIENTATIONS", encode::NUM_PROMOTION_ORIENTATIONS)?;
+    m.add(
+        "NUM_PROMOTION_ORIENTATIONS",
+        encode::NUM_PROMOTION_ORIENTATIONS,
+    )?;
     Ok(())
 }

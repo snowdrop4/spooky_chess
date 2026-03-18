@@ -391,8 +391,11 @@ where
         piece: &Piece,
         moves: &mut Vec<Move>,
     ) {
-        self.generate_sliding_moves_into(src, piece, &Self::geo().orthogonal_steps, moves);
-        self.generate_sliding_moves_into(src, piece, &Self::geo().diagonal_steps, moves);
+        let geo = Self::geo();
+        let occupied = self.board.occupied();
+        let attacks = geo.orthogonal_attacks(src.to_index(W), occupied)
+            | geo.diagonal_attacks(src.to_index(W), occupied);
+        self.generate_sliding_moves_from_attacks_into(src, piece, attacks, moves)
     }
 
     fn generate_pseudo_legal_king_moves_into(

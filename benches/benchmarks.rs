@@ -7,6 +7,7 @@ use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use spooky_chess::encode::encode_game_planes;
 use spooky_chess::game::StandardGame;
+use spooky_chess::uci::UciEngine;
 use std::hint::black_box;
 
 /// Play ~20 random moves on a fresh game to create a realistic mid-game position.
@@ -141,10 +142,41 @@ criterion_group!(
         bench_outcome,
         bench_self_play_step,
 );
+fn bench_random_playout_stockfish(c: &mut Criterion) {
+    c.bench_function("random_playout_stockfish_depth4", |b| {
+        b.iter(|| {
+            let mut engine = UciEngine::new("stockfish", &[]).expect("failed to spawn stockfish");
+            engine.set_position_startpos();
+            let mut rng = StdRng::seed_from_u64(456);
+            while !engine.is_over() {
+                let moves = engine.legal_moves();
+                if moves.is_empty() {
+                    break;
+                }
+                // Ask stockfish to evaluate at depth 4
+                let result = engine.go_depth(4).expect("stockfish go_depth failed");
+                black_box(&result);
+                // Play a random move (not stockfish's best) to keep games varied
+                let mv = moves
+                    .choose(&mut rng)
+                    .expect("bench_random_playout_stockfish: legal moves must not be empty");
+                engine.make_move(mv).expect("make_move failed");
+            }
+            black_box(engine.game().clone().outcome())
+        })
+    });
+}
+
 criterion_group!(
     name = playouts;
     config = Criterion::default().sample_size(10_000);
     targets =
         bench_random_playout,
 );
-criterion_main!(benches, playouts);
+criterion_group!(
+    name = stockfish_playouts;
+    config = Criterion::default().sample_size(10);
+    targets =
+        bench_random_playout_stockfish,
+);
+criterion_main!(benches, playouts, stockfish_playouts);

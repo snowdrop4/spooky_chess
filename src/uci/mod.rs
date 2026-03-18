@@ -18,8 +18,13 @@ pub struct UciEngine {
     game: StandardGame,
     move_history_lan: Vec<String>,
     started_from_fen: Option<String>,
+    /// Cached "position ..." command string, built incrementally.
+    position_cmd: String,
+    /// Reusable read buffer to avoid per-line allocation.
+    line_buf: String,
 }
 
+#[hotpath::measure_all]
 impl UciEngine {
     /// Spawn a UCI engine process and perform the UCI handshake.
     pub fn new(program: &str, args: &[&str]) -> Result<Self, UciError> {
@@ -52,6 +57,8 @@ impl UciEngine {
             game: StandardGame::standard(),
             move_history_lan: Vec::new(),
             started_from_fen: None,
+            position_cmd: String::from("position startpos"),
+            line_buf: String::with_capacity(256),
         };
 
         // Send "uci" and wait for "uciok"
@@ -87,8 +94,8 @@ impl UciEngine {
     pub fn is_ready(&mut self) -> Result<(), UciError> {
         self.send_line("isready")?;
         loop {
-            let line = self.read_line()?;
-            if line.trim() == "readyok" {
+            self.read_line_buf()?;
+            if self.line_buf.trim() == "readyok" {
                 return Ok(());
             }
         }
@@ -99,6 +106,8 @@ impl UciEngine {
         self.game = StandardGame::standard();
         self.move_history_lan.clear();
         self.started_from_fen = None;
+        self.position_cmd.clear();
+        self.position_cmd.push_str("position startpos");
     }
 
     /// Reset the internal game to a position given by FEN.
@@ -108,6 +117,9 @@ impl UciEngine {
         self.game = game;
         self.move_history_lan.clear();
         self.started_from_fen = Some(fen.to_string());
+        self.position_cmd.clear();
+        self.position_cmd.push_str("position fen ");
+        self.position_cmd.push_str(fen);
         Ok(())
     }
 
@@ -117,6 +129,12 @@ impl UciEngine {
         let lan = mv.to_lan();
         let ok = self.game.make_move(mv);
         if ok {
+            // Append to cached position command incrementally
+            if self.move_history_lan.is_empty() {
+                self.position_cmd.push_str(" moves");
+            }
+            self.position_cmd.push(' ');
+            self.position_cmd.push_str(&lan);
             self.move_history_lan.push(lan);
         }
         Ok(ok)
@@ -196,7 +214,18 @@ impl UciEngine {
     /// Undo the last move. Returns false if there is no move to undo.
     pub fn undo(&mut self) -> bool {
         if self.game.unmake_move() {
-            self.move_history_lan.pop();
+            let popped = self.move_history_lan.pop();
+            if let Some(lan) = popped {
+                // Remove " <lan>" from cached position command
+                let remove_len = 1 + lan.len(); // space + move
+                self.position_cmd
+                    .truncate(self.position_cmd.len() - remove_len);
+                // If no moves left, also remove " moves"
+                if self.move_history_lan.is_empty() {
+                    self.position_cmd
+                        .truncate(self.position_cmd.len() - " moves".len());
+                }
+            }
             true
         } else {
             false
@@ -206,7 +235,8 @@ impl UciEngine {
     /// Send a raw UCI command and return the response line.
     pub fn send_command(&mut self, cmd: &str) -> Result<String, UciError> {
         self.send_line(cmd)?;
-        self.read_line()
+        self.read_line_buf()?;
+        Ok(self.line_buf.clone())
     }
 
     /// Send `quit` to the engine.
@@ -223,19 +253,21 @@ impl UciEngine {
         Ok(())
     }
 
-    fn read_line(&mut self) -> Result<String, UciError> {
-        let mut line = String::new();
-        let n = self.stdout.read_line(&mut line)?;
+    /// Read a line into `self.line_buf`, clearing it first.
+    /// After calling, the line is available in `self.line_buf`.
+    fn read_line_buf(&mut self) -> Result<(), UciError> {
+        self.line_buf.clear();
+        let n = self.stdout.read_line(&mut self.line_buf)?;
         if n == 0 {
             return Err(UciError::EngineExited);
         }
-        Ok(line)
+        Ok(())
     }
 
     fn read_until_uciok(&mut self) -> Result<(), UciError> {
         loop {
-            let line = self.read_line()?;
-            let trimmed = line.trim();
+            self.read_line_buf()?;
+            let trimmed = self.line_buf.trim();
 
             if let Some((key, value)) = protocol::parse_id_line(trimmed) {
                 match key {
@@ -253,8 +285,8 @@ impl UciEngine {
 
     /// Send the current position to the engine.
     fn send_position(&mut self) -> Result<(), UciError> {
-        let cmd = protocol::cmd_position(&self.started_from_fen, &self.move_history_lan);
-        self.send_line(&cmd)?;
+        writeln!(self.stdin, "{}", self.position_cmd)?;
+        self.stdin.flush()?;
         Ok(())
     }
 
@@ -263,28 +295,31 @@ impl UciEngine {
         let mut info_lines = Vec::new();
 
         loop {
-            let line = self.read_line()?;
-            let trimmed = line.trim();
+            self.read_line_buf()?;
 
-            if let Some(info) = protocol::parse_info_line(trimmed) {
+            // Parse while line_buf is borrowed, then drop the borrows before mut self calls
+            let info = protocol::parse_info_line(self.line_buf.trim());
+            let bestmove = protocol::parse_bestmove_line(self.line_buf.trim());
+
+            if let Some(info) = info {
                 info_lines.push(info);
             }
 
-            if let Some((best_lan, ponder_lan)) = protocol::parse_bestmove_line(trimmed) {
+            if let Some((best_lan, ponder_lan)) = bestmove {
                 let best_move = self
                     .game
                     .move_from_lan(&best_lan)
                     .map_err(UciError::IllegalMove)?;
 
                 let ponder_move = if let Some(ref ponder_str) = ponder_lan {
-                    // To parse ponder move, we need to temporarily apply the best move
-                    let mut temp_game = self.game.clone();
-                    temp_game.make_move_unchecked(&best_move);
-                    Some(
-                        temp_game
-                            .move_from_lan(ponder_str)
-                            .map_err(UciError::IllegalMove)?,
-                    )
+                    // Temporarily apply best move to parse ponder in that context
+                    self.game.make_move_unchecked(&best_move);
+                    let pm = self
+                        .game
+                        .move_from_lan(ponder_str)
+                        .map_err(UciError::IllegalMove)?;
+                    self.game.unmake_move();
+                    Some(pm)
                 } else {
                     None
                 };
@@ -301,6 +336,7 @@ impl UciEngine {
     }
 }
 
+#[hotpath::measure_all]
 impl Drop for UciEngine {
     fn drop(&mut self) {
         let _ = self.send_line("quit");

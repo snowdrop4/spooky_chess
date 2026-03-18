@@ -302,28 +302,73 @@ fn parse_game_node(game_node: &Node, source: &[u8]) -> Result<PgnGame, PgnError>
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Parse a PGN string that may contain multiple games.
-pub fn parse_pgn(pgn: &str) -> Result<Vec<PgnGame>, PgnError> {
-    let mut parser = Parser::new();
-    parser
-        .set_language(&tree_sitter_pgn::LANGUAGE.into())
-        .map_err(|e| PgnError::ParseError(format!("Failed to set language: {}", e)))?;
+/// An iterator that yields [`PgnGame`]s one at a time from a parsed PGN tree.
+///
+/// Created by [`PgnIter::new`]. The tree-sitter parse tree is built upfront,
+/// but individual games are only converted to [`PgnGame`] as they are consumed.
+pub struct PgnIter {
+    source: String,
+    tree: tree_sitter::Tree,
+    child_index: usize,
+}
 
-    let tree = parser
-        .parse(pgn, None)
-        .ok_or_else(|| PgnError::ParseError("Failed to parse PGN".to_string()))?;
+impl PgnIter {
+    /// Parse the PGN source into a tree and return an iterator over its games.
+    pub fn new(pgn: String) -> Result<Self, PgnError> {
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_pgn::LANGUAGE.into())
+            .map_err(|e| PgnError::ParseError(format!("Failed to set language: {}", e)))?;
 
-    let root = tree.root_node();
-    let source = pgn.as_bytes();
+        let tree = parser
+            .parse(&pgn, None)
+            .ok_or_else(|| PgnError::ParseError("Failed to parse PGN".to_string()))?;
 
-    let mut games = Vec::new();
-    let mut cursor = root.walk();
-
-    for child in root.children_by_field_name("game", &mut cursor) {
-        games.push(parse_game_node(&child, source)?);
+        Ok(Self {
+            source: pgn,
+            tree,
+            child_index: 0,
+        })
     }
 
-    Ok(games)
+    /// Extract raw PGN text for each game without parsing moves.
+    ///
+    /// This is much faster than iterating and fully parsing each game, because
+    /// it only reads byte ranges from the tree-sitter tree. Useful when you want
+    /// to distribute game parsing across multiple threads.
+    pub fn raw_game_texts(&self) -> Vec<String> {
+        let root = self.tree.root_node();
+        let mut texts = Vec::new();
+        for i in 0..root.child_count() {
+            if let Some(child) = root.child(i)
+                && child.kind() == "game" {
+                    texts.push(self.source[child.start_byte()..child.end_byte()].to_string());
+                }
+        }
+        texts
+    }
+}
+
+impl Iterator for PgnIter {
+    type Item = Result<PgnGame, PgnError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let root = self.tree.root_node();
+        let source = self.source.as_bytes();
+
+        loop {
+            let child = root.child(self.child_index)?;
+            self.child_index += 1;
+            if child.kind() == "game" {
+                return Some(parse_game_node(&child, source));
+            }
+        }
+    }
+}
+
+/// Parse a PGN string that may contain multiple games.
+pub fn parse_pgn(pgn: &str) -> Result<Vec<PgnGame>, PgnError> {
+    PgnIter::new(pgn.to_string())?.collect()
 }
 
 /// Parse a PGN string containing exactly one game.

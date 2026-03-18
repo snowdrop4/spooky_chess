@@ -22,7 +22,6 @@ pub struct InfoLine {
     pub nps: Option<u64>,
     pub time_ms: Option<u64>,
     pub pv: Vec<String>,
-    pub raw: String,
 }
 
 /// Errors that can occur during UCI communication.
@@ -55,6 +54,7 @@ impl From<io::Error> for UciError {
 
 // --- Command builders ---
 
+#[hotpath::measure]
 pub fn cmd_position(started_from_fen: &Option<String>, moves: &[String]) -> String {
     let mut cmd = String::from("position ");
     match started_from_fen {
@@ -76,14 +76,17 @@ pub fn cmd_position(started_from_fen: &Option<String>, moves: &[String]) -> Stri
     cmd
 }
 
+#[hotpath::measure]
 pub fn cmd_go_depth(depth: u32) -> String {
     format!("go depth {}", depth)
 }
 
+#[hotpath::measure]
 pub fn cmd_go_movetime(ms: u64) -> String {
     format!("go movetime {}", ms)
 }
 
+#[hotpath::measure]
 pub fn cmd_go_clock(wtime: u64, btime: u64, winc: u64, binc: u64) -> String {
     format!(
         "go wtime {} btime {} winc {} binc {}",
@@ -91,6 +94,7 @@ pub fn cmd_go_clock(wtime: u64, btime: u64, winc: u64, binc: u64) -> String {
     )
 }
 
+#[hotpath::measure]
 pub fn cmd_setoption(name: &str, value: &str) -> String {
     format!("setoption name {} value {}", name, value)
 }
@@ -99,6 +103,7 @@ pub fn cmd_setoption(name: &str, value: &str) -> String {
 
 /// Parse a `id name ...` or `id author ...` line.
 /// Returns `(key, value)` where key is "name" or "author".
+#[hotpath::measure]
 pub fn parse_id_line(line: &str) -> Option<(&str, String)> {
     let line = line.trim();
     if !line.starts_with("id ") {
@@ -116,6 +121,7 @@ pub fn parse_id_line(line: &str) -> Option<(&str, String)> {
 
 /// Parse a `bestmove <move> [ponder <move>]` line.
 /// Returns `(bestmove_lan, ponder_lan)`.
+#[hotpath::measure]
 pub fn parse_bestmove_line(line: &str) -> Option<(String, Option<String>)> {
     let line = line.trim();
     if !line.starts_with("bestmove ") {
@@ -135,6 +141,7 @@ pub fn parse_bestmove_line(line: &str) -> Option<(String, Option<String>)> {
 }
 
 /// Parse a UCI `info` line into an `InfoLine`.
+#[hotpath::measure]
 pub fn parse_info_line(line: &str) -> Option<InfoLine> {
     let line = line.trim();
     if !line.starts_with("info ") {
@@ -218,6 +225,5 @@ pub fn parse_info_line(line: &str) -> Option<InfoLine> {
         nps,
         time_ms,
         pv,
-        raw: line.to_string(),
     })
 }

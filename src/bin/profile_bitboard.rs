@@ -2,8 +2,8 @@
 #![allow(incomplete_features)]
 
 use rand::SeedableRng;
+use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
-use rand::seq::IndexedRandom;
 use spooky_chess::game::Game;
 
 #[hotpath::measure]

@@ -2,7 +2,7 @@ use super::*;
 
 macro_rules! pgn {
     ($file:literal) => {
-        include_str!(concat!("../../pgn/", $file))
+        include_str!(concat!("../../pgn/example/", $file))
     };
 }
 

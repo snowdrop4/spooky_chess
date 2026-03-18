@@ -184,10 +184,10 @@ def test_invalid_fen_raises() -> None:
 @needs_stockfish
 def test_invalid_move_lan_raises() -> None:
     engine = spooky_chess.UciEngine("stockfish")
-    with pytest.raises(ValueError, match="z9z9"):
+    with pytest.raises(ValueError, match="out of bounds"):
         engine.make_move_lan("z9z9")
 
 
 def test_invalid_engine_path_raises() -> None:
-    with pytest.raises(OSError, match="nonexistent"):
+    with pytest.raises(OSError, match="No such file or directory"):
         spooky_chess.UciEngine("/nonexistent/engine/path")
