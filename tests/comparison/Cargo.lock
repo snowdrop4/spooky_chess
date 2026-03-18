@@ -324,13 +324,12 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "spooky_chess"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "arrayvec",
  "bitflags",
  "hotpath",
  "paste",
- "rand",
  "tree-sitter",
  "tree-sitter-pgn",
 ]
@@ -383,7 +382,8 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 [[package]]
 name = "tree-sitter-pgn"
 version = "1.4.3"
-source = "git+https://github.com/rolandwalker/tree-sitter-pgn?rev=9f8e1a9#9f8e1a9c43a1f2e8258e9a7a485b8f55e1dbe35c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5558419ecc5a8a799306938be9ae8870987650ddd350d648dcaca58face09ab8"
 dependencies = [
  "cc",
  "tree-sitter-language",
