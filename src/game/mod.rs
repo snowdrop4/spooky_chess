@@ -10,6 +10,7 @@ use crate::position::Position;
 mod action;
 mod check_pin;
 mod make_move;
+#[macro_use]
 mod movegen;
 mod state;
 

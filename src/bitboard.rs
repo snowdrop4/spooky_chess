@@ -398,6 +398,15 @@ where
     pub(crate) ray_diagonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
 }
 
+impl<const W: usize, const H: usize> Default for BoardGeometry<W, H>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const W: usize, const H: usize> BoardGeometry<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
@@ -705,9 +714,9 @@ where
             return full_ray;
         }
         let first_blocker = if is_left {
-            blockers.lowest_bit_index().unwrap()
+            blockers.lowest_bit_index().expect("blockers confirmed non-empty")
         } else {
-            blockers.highest_bit_index().unwrap()
+            blockers.highest_bit_index().expect("blockers confirmed non-empty")
         };
         full_ray ^ ray_table[dir_idx][first_blocker]
     }

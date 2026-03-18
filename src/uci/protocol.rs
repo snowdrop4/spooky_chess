@@ -55,6 +55,7 @@ impl From<io::Error> for UciError {
 // --- Command builders ---
 
 #[hotpath::measure]
+#[allow(dead_code)]
 pub fn cmd_position(started_from_fen: &Option<String>, moves: &[String]) -> String {
     let mut cmd = String::from("position ");
     match started_from_fen {
