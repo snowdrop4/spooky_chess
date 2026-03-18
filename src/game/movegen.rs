@@ -5,6 +5,7 @@ use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 
 use super::Game;
+use super::check_pin::CheckPinInfo;
 
 #[hotpath::measure_all]
 impl<const W: usize, const H: usize> Game<W, H>
@@ -160,25 +161,81 @@ where
     }
 
     pub fn legal_moves(&mut self) -> Vec<Move> {
+        let info = self.compute_check_pin_info();
         let mut moves = Vec::new();
-        let mut pseudo_legal = Vec::new();
-
         let color = self.turn;
+        let king_pos = match color {
+            Color::White => self.white_king_pos,
+            Color::Black => self.black_king_pos,
+        };
+        let king_idx = king_pos.to_index(W);
+
+        // King moves are always generated
+        self.generate_legal_king_moves_into(&king_pos, &info, &mut moves);
+
+        // Double check: only king moves are legal
+        if info.num_checkers >= 2 {
+            return moves;
+        }
+
+        let occupied = self.board.occupied();
+        let own = self.board.color_bb(color);
+        let geo = Self::geo();
+
         for idx in self.board.color_bb(color).iter_ones() {
+            if idx == king_idx {
+                continue;
+            }
+
             let pt = self
                 .board
                 .piece_type_at(idx)
                 .expect("legal_moves: piece type must exist for color bitboard index");
+
+            if pt == PieceType::Knight && info.pinned.get(idx) {
+                continue; // pinned knight can never move
+            }
+
+            let move_mask = if info.pinned.get(idx) {
+                info.get_pin_mask(idx) & info.check_mask
+            } else {
+                info.check_mask
+            };
+
+            if move_mask.is_empty() {
+                continue;
+            }
+
             let pos = Position::from_index(idx, W);
             let piece = Piece::new(pt, color);
 
-            pseudo_legal.clear();
-            self.generate_pseudo_legal_moves_for_piece_into(&pos, &piece, &mut pseudo_legal);
-
-            for mv in pseudo_legal.iter() {
-                if self.is_pseudo_legal_move_legal(mv, &piece) {
-                    moves.push(*mv);
+            match pt {
+                PieceType::Knight => {
+                    self.generate_legal_knight_moves_into(idx, &pos, move_mask, &mut moves);
                 }
+                PieceType::Pawn => {
+                    self.generate_legal_pawn_moves_into(idx, &pos, &piece, move_mask, &mut moves);
+                }
+                PieceType::Bishop => {
+                    let attacks = geo.diagonal_attacks(idx, occupied);
+                    self.generate_legal_slider_moves_into(
+                        &pos, own, occupied, attacks, move_mask, &mut moves,
+                    );
+                }
+                PieceType::Rook => {
+                    let attacks = geo.orthogonal_attacks(idx, occupied);
+                    self.generate_legal_slider_moves_into(
+                        &pos, own, occupied, attacks, move_mask, &mut moves,
+                    );
+                }
+                PieceType::Queen => {
+                    let attacks =
+                        geo.orthogonal_attacks(idx, occupied) | geo.diagonal_attacks(idx, occupied);
+                    self.generate_legal_slider_moves_into(
+                        &pos, own, occupied, attacks, move_mask, &mut moves,
+                    );
+                }
+                PieceType::King => unreachable!(),
             }
         }
 
@@ -393,9 +450,8 @@ where
     ) {
         let geo = Self::geo();
         let occupied = self.board.occupied();
-        let attacks =
-            geo.orthogonal_attacks(src.to_index(W), occupied)
-                | geo.diagonal_attacks(src.to_index(W), occupied);
+        let attacks = geo.orthogonal_attacks(src.to_index(W), occupied)
+            | geo.diagonal_attacks(src.to_index(W), occupied);
         self.generate_sliding_moves_from_attacks_into(src, piece, attacks, moves)
     }
 
@@ -495,5 +551,221 @@ where
             Position::new(king_dst, row),
             MoveFlags::CASTLE,
         ));
+    }
+
+    // ── Pin-aware legal move generators ─────────────────────────────────
+
+    fn generate_legal_king_moves_into(
+        &self,
+        king_pos: &Position,
+        info: &CheckPinInfo<{ (W * H).div_ceil(64) }>,
+        moves: &mut Vec<Move>,
+    ) {
+        let color = self.turn;
+        let king_idx = king_pos.to_index(W);
+        let own = self.board.color_bb(color);
+        let occupied = self.board.occupied();
+        let geo = Self::geo();
+
+        let targets = geo
+            .king_attacks(king_idx)
+            .andnot(own)
+            .andnot(info.king_danger_squares);
+        for dst_idx in targets.iter_ones() {
+            let dst = Position::from_index(dst_idx, W);
+            let flags = if occupied.get(dst_idx) {
+                MoveFlags::CAPTURE
+            } else {
+                MoveFlags::empty()
+            };
+            moves.push(Move::from_position(*king_pos, dst, flags));
+        }
+
+        // Castling (only when not in check)
+        if self.castling_enabled && W >= 5 && info.num_checkers == 0 {
+            let row = king_pos.row;
+
+            if self.castling_rights.has_kingside(color) {
+                let king_dst = king_pos.col + 2;
+                let rook_col = W - 1;
+                if king_dst < rook_col
+                    && let Some(mv) =
+                        self.try_castle_pin_aware(king_pos, row, king_dst, rook_col, info)
+                    {
+                        moves.push(mv);
+                    }
+            }
+
+            if self.castling_rights.has_queenside(color) && king_pos.col >= 2 {
+                let king_dst = king_pos.col - 2;
+                if let Some(mv) = self.try_castle_pin_aware(king_pos, row, king_dst, 0, info) {
+                    moves.push(mv);
+                }
+            }
+        }
+    }
+
+    /// Check castling legality using precomputed king_danger_squares instead
+    /// of per-square `is_square_attacked` calls. Returns the castle move if legal.
+    pub(super) fn try_castle_pin_aware(
+        &self,
+        king_src: &Position,
+        row: usize,
+        king_dst: usize,
+        rook_col: usize,
+        info: &CheckPinInfo<{ (W * H).div_ceil(64) }>,
+    ) -> Option<Move> {
+        let occupied = self.board.occupied();
+
+        // All squares between king and rook must be empty
+        let (lo, hi) = if king_src.col < rook_col {
+            (king_src.col + 1, rook_col)
+        } else {
+            (rook_col + 1, king_src.col)
+        };
+        for col in lo..hi {
+            if occupied.get(row * W + col) {
+                return None;
+            }
+        }
+
+        // All squares the king passes through (and lands on) must not be attacked
+        let (path_lo, path_hi) = if king_dst > king_src.col {
+            (king_src.col + 1, king_dst + 1)
+        } else {
+            (king_dst, king_src.col)
+        };
+        for col in path_lo..path_hi {
+            if info.king_danger_squares.get(row * W + col) {
+                return None;
+            }
+        }
+
+        Some(Move::from_position(
+            *king_src,
+            Position::new(king_dst, row),
+            MoveFlags::CASTLE,
+        ))
+    }
+
+    fn generate_legal_knight_moves_into(
+        &self,
+        src_idx: usize,
+        src: &Position,
+        move_mask: Bitboard<{ (W * H).div_ceil(64) }>,
+        moves: &mut Vec<Move>,
+    ) {
+        let own = self.board.color_bb(self.turn);
+        let occupied = self.board.occupied();
+        let targets = Self::geo().knight_attacks(src_idx).andnot(own) & move_mask;
+
+        for dst_idx in targets.iter_ones() {
+            let dst = Position::from_index(dst_idx, W);
+            let flags = if occupied.get(dst_idx) {
+                MoveFlags::CAPTURE
+            } else {
+                MoveFlags::empty()
+            };
+            moves.push(Move::from_position(*src, dst, flags));
+        }
+    }
+
+    fn generate_legal_slider_moves_into(
+        &self,
+        src: &Position,
+        own: Bitboard<{ (W * H).div_ceil(64) }>,
+        occupied: Bitboard<{ (W * H).div_ceil(64) }>,
+        attacks: Bitboard<{ (W * H).div_ceil(64) }>,
+        move_mask: Bitboard<{ (W * H).div_ceil(64) }>,
+        moves: &mut Vec<Move>,
+    ) {
+        let targets = attacks.andnot(own) & move_mask;
+        for dst_idx in targets.iter_ones() {
+            let dst = Position::from_index(dst_idx, W);
+            let flags = if occupied.get(dst_idx) {
+                MoveFlags::CAPTURE
+            } else {
+                MoveFlags::empty()
+            };
+            moves.push(Move::from_position(*src, dst, flags));
+        }
+    }
+
+    fn generate_legal_pawn_moves_into(
+        &mut self,
+        src_idx: usize,
+        src: &Position,
+        piece: &Piece,
+        move_mask: Bitboard<{ (W * H).div_ceil(64) }>,
+        moves: &mut Vec<Move>,
+    ) {
+        let occupied = self.board.occupied();
+        let enemy = self.board.color_bb(piece.color.opposite());
+        let is_white = piece.color == Color::White;
+        let geo = Self::geo();
+
+        let start_row = if is_white { 1 } else { H - 2 };
+        let promo_row = if is_white { H - 2 } else { 1 };
+
+        let src_bb = Bitboard::single(src_idx);
+
+        // Single push
+        let push = geo.pawn_push(src_bb, is_white).andnot(occupied);
+        let legal_push = push & move_mask;
+        for idx in legal_push.iter_ones() {
+            let dst = Position::from_index(idx, W);
+            if src.row == promo_row {
+                for pt in &PieceType::PROMOTABLE {
+                    moves.push(Move::from_position_with_promotion(
+                        *src,
+                        dst,
+                        MoveFlags::PROMOTION,
+                        *pt,
+                    ));
+                }
+            } else {
+                moves.push(Move::from_position(*src, dst, MoveFlags::empty()));
+            }
+        }
+
+        // Double push
+        if src.row == start_row && !push.is_empty() {
+            let double = geo.pawn_push(push, is_white).andnot(occupied) & move_mask;
+            for idx in double.iter_ones() {
+                let dst = Position::from_index(idx, W);
+                moves.push(Move::from_position(*src, dst, MoveFlags::DOUBLE_PUSH));
+            }
+        }
+
+        // Captures
+        let attacks = geo.pawn_attacks(src_idx, is_white);
+        let captures = attacks & enemy & move_mask;
+        for idx in captures.iter_ones() {
+            let dst = Position::from_index(idx, W);
+            if src.row == promo_row {
+                for pt in &PieceType::PROMOTABLE {
+                    moves.push(Move::from_position_with_promotion(
+                        *src,
+                        dst,
+                        MoveFlags::CAPTURE | MoveFlags::PROMOTION,
+                        *pt,
+                    ));
+                }
+            } else {
+                moves.push(Move::from_position(*src, dst, MoveFlags::CAPTURE));
+            }
+        }
+
+        // En passant — always validated via make/unmake (horizontal discovered check edge case)
+        if let Some(ep) = self.en_passant {
+            let ep_bb = Bitboard::single(ep.to_index(W));
+            if !(attacks & ep_bb).is_empty() {
+                let ep_move =
+                    Move::from_position(*src, ep, MoveFlags::CAPTURE | MoveFlags::EN_PASSANT);
+                if self.is_pseudo_legal_move_legal(&ep_move, piece) {
+                    moves.push(ep_move);
+                }
+            }
+        }
     }
 }

@@ -341,9 +341,10 @@ impl PgnIter {
         let mut texts = Vec::new();
         for i in 0..root.child_count() {
             if let Some(child) = root.child(i)
-                && child.kind() == "game" {
-                    texts.push(self.source[child.start_byte()..child.end_byte()].to_string());
-                }
+                && child.kind() == "game"
+            {
+                texts.push(self.source[child.start_byte()..child.end_byte()].to_string());
+            }
         }
         texts
     }

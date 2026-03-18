@@ -25,7 +25,7 @@ fn play_random_game(rng: &mut SmallRng) -> spooky_chess::outcome::GameOutcome {
 
 #[hotpath::main(limit = 0)]
 fn main() {
-    let num_games = 200;
+    let num_games = 1000;
     let mut white_wins = 0;
     let mut black_wins = 0;
     let mut draws = 0;

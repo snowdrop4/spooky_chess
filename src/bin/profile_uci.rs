@@ -7,8 +7,10 @@ use rand::rngs::SmallRng;
 use spooky_chess::uci::UciEngine;
 
 #[hotpath::measure]
-fn play_random_game_with_stockfish(rng: &mut SmallRng) -> spooky_chess::outcome::GameOutcome {
-    let mut engine = UciEngine::new("stockfish", &[]).expect("failed to spawn stockfish");
+fn play_random_game_with_stockfish(
+    engine: &mut UciEngine,
+    rng: &mut SmallRng,
+) -> spooky_chess::outcome::GameOutcome {
     engine.set_position_startpos();
 
     loop {
@@ -42,8 +44,10 @@ fn main() {
 
     let mut rng = SmallRng::seed_from_u64(0xDEAD_BEEF);
 
+    let mut engine = UciEngine::new("stockfish", &[]).expect("failed to spawn stockfish");
+
     for _i in 0..num_games {
-        let outcome = play_random_game_with_stockfish(&mut rng);
+        let outcome = play_random_game_with_stockfish(&mut engine, &mut rng);
 
         match outcome.winner() {
             Some(spooky_chess::color::Color::White) => white_wins += 1,

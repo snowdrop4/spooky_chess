@@ -8,6 +8,7 @@ use crate::pieces::Piece;
 use crate::position::Position;
 
 mod action;
+mod check_pin;
 mod make_move;
 mod movegen;
 mod state;

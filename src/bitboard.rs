@@ -393,9 +393,9 @@ where
     pawn_attacks_white_table: [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
     pawn_attacks_black_table: [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
     /// Precomputed full unblocked rays for orthogonal directions (N, S, E, W).
-    ray_orthogonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
+    pub(crate) ray_orthogonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
     /// Precomputed full unblocked rays for diagonal directions (NE, NW, SE, SW).
-    ray_diagonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
+    pub(crate) ray_diagonal: [[Bitboard<{ (W * H).div_ceil(64) }>; W * H]; 4],
 }
 
 impl<const W: usize, const H: usize> BoardGeometry<W, H>
