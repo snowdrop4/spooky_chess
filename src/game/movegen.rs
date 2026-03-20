@@ -726,7 +726,7 @@ where
         row: usize,
         king_dst: usize,
         rook_col: usize,
-        info: &CheckPinInfo<{ (W * H).div_ceil(64) }>,
+        info: &CheckPinInfo<{ (W * H).div_ceil(64) }, { W * H }>,
     ) -> Option<Move> {
         let occupied = self.board.occupied();
 

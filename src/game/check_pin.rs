@@ -1,34 +1,27 @@
-use arrayvec::ArrayVec;
-
 use crate::bitboard::Bitboard;
 use crate::color::Color;
 use crate::pieces::PieceType;
 
 use super::Game;
 
-pub(super) struct CheckPinInfo<const NW: usize> {
+pub(super) struct CheckPinInfo<const NW: usize, const N: usize> {
     pub num_checkers: u8,
     pub check_mask: Bitboard<NW>,
     pub pinned: Bitboard<NW>,
-    pin_rays: ArrayVec<(usize, Bitboard<NW>), 8>,
+    pin_masks: [Bitboard<NW>; N],
     pub king_danger_squares: Bitboard<NW>,
 }
 
-impl<const NW: usize> CheckPinInfo<NW> {
+impl<const NW: usize, const N: usize> CheckPinInfo<NW, N> {
     /// Returns the pin ray mask for a pinned piece (squares it may move to).
     /// Only call for pieces known to be pinned.
     pub fn get_pin_mask(&self, piece_idx: usize) -> Bitboard<NW> {
-        for &(idx, mask) in self.pin_rays.iter() {
-            if idx == piece_idx {
-                return mask;
-            }
-        }
         debug_assert!(
-            false,
+            !self.pin_masks[piece_idx].is_empty(),
             "get_pin_mask called for non-pinned piece at index {}",
             piece_idx
         );
-        !Bitboard::empty()
+        self.pin_masks[piece_idx]
     }
 }
 
@@ -37,7 +30,9 @@ impl<const W: usize, const H: usize> Game<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    pub(super) fn compute_check_pin_info(&self) -> CheckPinInfo<{ (W * H).div_ceil(64) }> {
+    pub(super) fn compute_check_pin_info(
+        &self,
+    ) -> CheckPinInfo<{ (W * H).div_ceil(64) }, { W * H }> {
         let geo = Self::geo();
         let color = self.turn;
         let opponent = color.opposite();
@@ -54,8 +49,7 @@ where
         let mut num_checkers: u8 = 0;
         let mut check_mask = Bitboard::empty();
         let mut pinned = Bitboard::empty();
-        let mut pin_rays: ArrayVec<(usize, Bitboard<{ (W * H).div_ceil(64) }>), 8> =
-            ArrayVec::new();
+        let mut pin_masks = [Bitboard::empty(); W * H];
 
         // Orthogonal: [0]=N(left), [1]=S(right), [2]=E(left), [3]=W(right)
         const ORTHO_IS_LEFT: [bool; 4] = [true, false, true, false];
@@ -75,7 +69,7 @@ where
                     &mut num_checkers,
                     &mut check_mask,
                     &mut pinned,
-                    &mut pin_rays,
+                    &mut pin_masks,
                 );
             }
         }
@@ -98,7 +92,7 @@ where
                     &mut num_checkers,
                     &mut check_mask,
                     &mut pinned,
-                    &mut pin_rays,
+                    &mut pin_masks,
                 );
             }
         }
@@ -137,7 +131,7 @@ where
             num_checkers,
             check_mask,
             pinned,
-            pin_rays,
+            pin_masks,
             king_danger_squares,
         }
     }
@@ -156,7 +150,7 @@ where
         num_checkers: &mut u8,
         check_mask: &mut Bitboard<{ (W * H).div_ceil(64) }>,
         pinned: &mut Bitboard<{ (W * H).div_ceil(64) }>,
-        pin_rays: &mut ArrayVec<(usize, Bitboard<{ (W * H).div_ceil(64) }>), 8>,
+        pin_masks: &mut [Bitboard<{ (W * H).div_ceil(64) }>; W * H],
     ) {
         let ray = ray_table[dir][king_idx];
         let blockers = ray & occupied;
@@ -199,8 +193,7 @@ where
                     *pinned |= first_bb;
                     // Pin mask: squares between king and pinner (inclusive of both endpoints
                     // on the ray, exclusive of king)
-                    let pin_mask = ray ^ ray_table[dir][second_idx];
-                    pin_rays.push((first_idx, pin_mask));
+                    pin_masks[first_idx] = ray ^ ray_table[dir][second_idx];
                 }
             }
         }
