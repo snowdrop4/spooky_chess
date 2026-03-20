@@ -12,7 +12,7 @@ Rust and Python library for the game of Chess.
 
 # Performance
 
-Measured with a Threadripper 9980x, and 6400 MT/s CL36 DDR5.
+Measured with a Threadripper 9980x, and 6400 MT/s CL36 DDR5. Python 3.14.
 
 ```fish
 > cargo run --release
@@ -56,6 +56,22 @@ uv add spooky-chess
 ```
 
 Includes type hints.
+
+# Examples
+
+These examples load a PGN, and ask Stockfish for the best move at every playable position.
+
+Rust:
+
+```fish
+cargo run --example analyse_pgn
+```
+
+Python:
+
+```fish
+uv run python examples/analyse_pgn.py
+```
 
 # Develop
 

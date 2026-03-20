@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 use crate::uci::{SearchResult, UciEngine, UciError};
 
 use super::py_move::PyMove;
+use super::py_pgn::PyPgnGame;
 
 fn uci_err_to_py(e: UciError) -> PyErr {
     match e {
@@ -135,6 +136,13 @@ impl PyUciEngine {
     fn set_position_fen(&mut self, fen: &str) -> PyResult<()> {
         self.engine_mut()?
             .set_position_fen(fen)
+            .map_err(uci_err_to_py)
+    }
+
+    /// Set position from the starting position of a parsed PGN game.
+    fn set_position_pgn_start(&mut self, pgn_game: &PyPgnGame) -> PyResult<()> {
+        self.engine_mut()?
+            .set_position_pgn_start(&pgn_game.inner)
             .map_err(uci_err_to_py)
     }
 

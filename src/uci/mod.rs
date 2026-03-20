@@ -4,6 +4,7 @@ pub use protocol::{InfoLine, SearchResult, UciError};
 
 use crate::color::Color;
 use crate::game::StandardGame;
+use crate::pgn::PgnGame;
 use crate::r#move::Move;
 
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -121,6 +122,16 @@ impl UciEngine {
         self.position_cmd.push_str("position fen ");
         self.position_cmd.push_str(fen);
         Ok(())
+    }
+
+    /// Reset the internal game to the starting position described by a PGN game.
+    pub fn set_position_pgn_start(&mut self, pgn_game: &PgnGame) -> Result<(), UciError> {
+        if let Some(fen) = pgn_game.starting_fen() {
+            self.set_position_fen(fen)
+        } else {
+            self.set_position_startpos();
+            Ok(())
+        }
     }
 
     /// Apply a `Move` to the internal game state and record it in history.

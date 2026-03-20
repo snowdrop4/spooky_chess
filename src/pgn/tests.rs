@@ -53,6 +53,16 @@ fn test_fen_start_position() {
         parse_pgn_single_game(pgn).expect("test_fen_start_position: failed to parse FEN start PGN");
     assert_eq!(game.moves.len(), 1);
     assert_eq!(game.result, PgnResult::Unknown);
+    assert_eq!(
+        game.starting_fen(),
+        Some("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    );
+    assert_eq!(
+        game.starting_game()
+            .expect("test_fen_start_position: failed to build start game")
+            .to_fen(),
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    );
 }
 
 #[test]
@@ -128,4 +138,18 @@ fn test_headers_case_insensitive() {
     };
     assert_eq!(headers.get("white"), Some("Kasparov"));
     assert_eq!(headers.get("WHITE"), Some("Kasparov"));
+}
+
+#[test]
+fn test_standard_start_helpers() {
+    let pgn = pgn!("scholars_mate.pgn");
+    let game =
+        parse_pgn_single_game(pgn).expect("test_standard_start_helpers: failed to parse PGN");
+    assert_eq!(game.starting_fen(), None);
+    assert_eq!(
+        game.starting_game()
+            .expect("test_standard_start_helpers: failed to build start game")
+            .to_fen(),
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    );
 }

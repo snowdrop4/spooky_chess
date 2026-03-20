@@ -127,6 +127,24 @@ pub struct PgnGame {
     pub final_game: StandardGame,
 }
 
+impl PgnGame {
+    pub fn starting_fen(&self) -> Option<&str> {
+        if self.headers.get("SetUp") == Some("1") {
+            self.headers.get("FEN")
+        } else {
+            None
+        }
+    }
+
+    pub fn starting_game(&self) -> Result<StandardGame, PgnError> {
+        if let Some(fen) = self.starting_fen() {
+            StandardGame::new(fen, true).map_err(PgnError::ParseError)
+        } else {
+            Ok(StandardGame::standard())
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Promotion normalization: e8Q -> e8=Q
 // ---------------------------------------------------------------------------
@@ -200,16 +218,13 @@ fn parse_game_node(game_node: &Node, source: &[u8]) -> Result<PgnGame, PgnError>
         .unwrap_or_default();
 
     // Determine starting position
-    let has_setup = headers.get("SetUp").map(|v| v == "1").unwrap_or(false);
-    let mut game = if has_setup {
-        if let Some(fen) = headers.get("FEN") {
-            StandardGame::new(fen, true).map_err(PgnError::ParseError)?
-        } else {
-            StandardGame::standard()
-        }
-    } else {
-        StandardGame::standard()
-    };
+    let mut game = PgnGame {
+        headers: headers.clone(),
+        moves: Vec::new(),
+        result: PgnResult::Unknown,
+        final_game: StandardGame::standard(),
+    }
+    .starting_game()?;
 
     // Parse moves from movetext
     let mut moves = Vec::new();

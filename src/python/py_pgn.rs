@@ -6,7 +6,7 @@ use super::py_move::PyMove;
 
 #[pyclass(name = "PgnGame")]
 pub struct PyPgnGame {
-    inner: crate::pgn::PgnGame,
+    pub(super) inner: crate::pgn::PgnGame,
 }
 
 #[pymethods]
@@ -37,6 +37,20 @@ impl PyPgnGame {
             .iter()
             .map(|m| PyMove { move_: *m })
             .collect()
+    }
+
+    pub fn starting_fen(&self) -> Option<String> {
+        self.inner.starting_fen().map(str::to_string)
+    }
+
+    pub fn starting_game(&self) -> PyResult<PyGame> {
+        let game = self
+            .inner
+            .starting_game()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+        Ok(PyGame {
+            inner: GameInner::W8H8(game),
+        })
     }
 
     pub fn game(&self) -> PyGame {
