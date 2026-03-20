@@ -15,7 +15,7 @@ Rust and Python library for the game of Chess.
 Measured with a Threadripper 9980x, and 6400 MT/s CL36 DDR5. Python 3.14.
 
 ```fish
-> cargo run --release
+> cd tests/comparison && cargo run --release
 50000 random game playouts
   spooky_chess (Rust Bindings):
     moves:   4936906
