@@ -4,7 +4,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use spooky_chess::encode::encode_game_planes;
 use spooky_chess::game::StandardGame;
 use spooky_chess::uci::UciEngine;
@@ -14,7 +14,7 @@ use std::hint::black_box;
 /// Uses a fixed seed for reproducibility across benchmark runs.
 fn setup_midgame() -> StandardGame {
     let mut game = StandardGame::standard();
-    let mut rng = StdRng::seed_from_u64(42);
+    let mut rng = SmallRng::seed_from_u64(42);
     for _ in 0..20 {
         let moves = game.legal_moves();
         if moves.is_empty() {
@@ -96,7 +96,7 @@ fn bench_random_playout(c: &mut Criterion) {
     c.bench_function("random_playout", |b| {
         b.iter(|| {
             let mut game = StandardGame::standard();
-            let mut rng = StdRng::seed_from_u64(123);
+            let mut rng = SmallRng::seed_from_u64(123);
             while !game.is_over() {
                 let moves = game.legal_moves();
                 if moves.is_empty() {
@@ -147,7 +147,7 @@ fn bench_random_playout_stockfish(c: &mut Criterion) {
         b.iter(|| {
             let mut engine = UciEngine::new("stockfish", &[]).expect("failed to spawn stockfish");
             engine.set_position_startpos();
-            let mut rng = StdRng::seed_from_u64(456);
+            let mut rng = SmallRng::seed_from_u64(456);
             while !engine.is_over() {
                 let moves = engine.legal_moves();
                 if moves.is_empty() {

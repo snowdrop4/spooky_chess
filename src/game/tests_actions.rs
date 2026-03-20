@@ -4,12 +4,13 @@ use crate::position::Position;
 
 use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
+use rand::rngs::SmallRng;
 
 type Game8x8 = Game<8, 8>;
 
 #[test]
 fn encode_decode_action_roundtrip() {
-    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    let mut rng = SmallRng::seed_from_u64(42);
 
     for _game_num in 0..500 {
         let mut game = Game8x8::standard();

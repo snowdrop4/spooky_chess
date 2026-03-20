@@ -716,6 +716,7 @@ mod tests {
     fn test_fuzz_move_encoding_random_games() {
         use rand::SeedableRng;
         use rand::prelude::IndexedRandom;
+        use rand::rngs::SmallRng;
         use std::sync::Arc;
         use std::sync::atomic::{AtomicU64, Ordering};
         use std::thread;
@@ -736,7 +737,7 @@ mod tests {
             let moves_tested = Arc::clone(&total_moves_tested);
 
             let handle = thread::spawn(move || {
-                let mut rng = rand::rngs::StdRng::seed_from_u64(thread_id as u64);
+                let mut rng = SmallRng::seed_from_u64(thread_id as u64);
                 let mut thread_moves_played = 0u64;
                 let mut thread_moves_tested = 0u64;
 

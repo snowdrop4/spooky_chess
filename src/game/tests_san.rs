@@ -350,7 +350,7 @@ fn san_roundtrip_midgame() {
 
 #[test]
 fn san_roundtrip_random_games() {
-    let mut rng = rand::rngs::StdRng::seed_from_u64(123);
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(123);
 
     for _game_num in 0..100 {
         let mut game = Game8x8::standard();
