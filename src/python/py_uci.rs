@@ -3,7 +3,13 @@ use pyo3::prelude::*;
 use crate::uci::{SearchResult, UciEngine, UciError};
 
 use super::py_move::PyMove;
+use super::py_outcome::PyGameOutcome;
 use super::py_pgn::PyPgnGame;
+use super::py_piece::PyPiece;
+use super::py_position::PyPosition;
+use super::py_turn_state::PyTurnState;
+use crate::color::Color;
+use crate::position::Position;
 
 fn uci_err_to_py(e: UciError) -> PyErr {
     match e {
@@ -220,9 +226,75 @@ impl PyUciEngine {
         Ok(self.engine()?.turn() as i8)
     }
 
+    fn fullmove_number(&self) -> PyResult<u32> {
+        Ok(self.engine()?.fullmove_number())
+    }
+
+    fn halfmove_clock(&self) -> PyResult<u32> {
+        Ok(self.engine()?.halfmove_clock())
+    }
+
+    fn castling_enabled(&self) -> PyResult<bool> {
+        Ok(self.engine()?.castling_enabled())
+    }
+
+    fn has_kingside_castling_rights(&self, color: i8) -> PyResult<bool> {
+        let color = Color::from_int(color).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
+        })?;
+        Ok(self.engine()?.has_kingside_castling_rights(color))
+    }
+
+    fn has_queenside_castling_rights(&self, color: i8) -> PyResult<bool> {
+        let color = Color::from_int(color).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
+        })?;
+        Ok(self.engine()?.has_queenside_castling_rights(color))
+    }
+
+    fn is_check(&self) -> PyResult<bool> {
+        Ok(self.engine()?.is_check())
+    }
+
     /// Check if the game is over.
     fn is_over(&mut self) -> PyResult<bool> {
         Ok(self.engine_mut()?.is_over())
+    }
+
+    fn outcome(&mut self) -> PyResult<Option<PyGameOutcome>> {
+        Ok(self
+            .engine_mut()?
+            .outcome()
+            .map(|outcome| PyGameOutcome { outcome }))
+    }
+
+    fn turn_state(&mut self) -> PyResult<PyTurnState> {
+        Ok(PyTurnState {
+            state: self.engine_mut()?.turn_state(),
+        })
+    }
+
+    fn is_checkmate(&mut self) -> PyResult<bool> {
+        Ok(self.engine_mut()?.is_checkmate())
+    }
+
+    fn is_stalemate(&mut self) -> PyResult<bool> {
+        Ok(self.engine_mut()?.is_stalemate())
+    }
+
+    fn is_insufficient_material(&self) -> PyResult<bool> {
+        Ok(self.engine()?.is_insufficient_material())
+    }
+
+    fn has_legal_en_passant(&mut self) -> PyResult<bool> {
+        Ok(self.engine_mut()?.has_legal_en_passant())
+    }
+
+    fn en_passant_square(&self) -> PyResult<Option<PyPosition>> {
+        Ok(self
+            .engine()?
+            .en_passant_square()
+            .map(|pos| PyPosition { pos }))
     }
 
     /// Get legal moves from the current position.
@@ -233,6 +305,71 @@ impl PyUciEngine {
             .into_iter()
             .map(|m| PyMove { move_: m })
             .collect())
+    }
+
+    fn pseudo_legal_moves(&self) -> PyResult<Vec<PyMove>> {
+        Ok(self
+            .engine()?
+            .pseudo_legal_moves()
+            .into_iter()
+            .map(|m| PyMove { move_: m })
+            .collect())
+    }
+
+    fn legal_moves_for_position(&mut self, col: usize, row: usize) -> PyResult<Vec<PyMove>> {
+        let pos = Position::new(col, row);
+        Ok(self
+            .engine_mut()?
+            .legal_moves_for_position(&pos)
+            .into_iter()
+            .map(|m| PyMove { move_: m })
+            .collect())
+    }
+
+    fn is_legal_move(&mut self, mv: PyMove) -> PyResult<bool> {
+        Ok(self.engine_mut()?.is_legal_move(&mv.move_))
+    }
+
+    fn move_to_lan(&mut self, mv: PyMove) -> PyResult<String> {
+        Ok(self.engine_mut()?.move_to_lan(&mv.move_))
+    }
+
+    fn move_from_lan(&self, lan: &str) -> PyResult<PyMove> {
+        self.engine()?
+            .move_from_lan(lan)
+            .map(|move_| PyMove { move_ })
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
+    }
+
+    fn move_to_san(&mut self, mv: PyMove) -> PyResult<String> {
+        Ok(self.engine_mut()?.move_to_san(&mv.move_))
+    }
+
+    fn move_from_san(&mut self, san: &str) -> PyResult<PyMove> {
+        self.engine_mut()?
+            .move_from_san(san)
+            .map(|move_| PyMove { move_ })
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
+    }
+
+    fn width(&self) -> PyResult<usize> {
+        Ok(self.engine()?.width())
+    }
+
+    fn height(&self) -> PyResult<usize> {
+        Ok(self.engine()?.height())
+    }
+
+    fn get_piece(&self, col: usize, row: usize) -> PyResult<Option<PyPiece>> {
+        let pos = Position::new(col, row);
+        Ok(self
+            .engine()?
+            .get_piece(&pos)
+            .map(|piece| PyPiece { piece }))
+    }
+
+    fn to_fen(&mut self) -> PyResult<String> {
+        Ok(self.engine_mut()?.to_fen())
     }
 
     /// Undo the last move.

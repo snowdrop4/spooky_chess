@@ -43,11 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         engine.set_position_pgn_start(pgn_game)?;
 
         for (ply_index, played_move) in pgn_game.moves.iter().enumerate() {
-            // Get best move
+            // Get engine's best move
             let search = engine.go_depth(DEPTH)?;
             print_analysis(ply_index, &search);
 
-            // Play played move
+            // Play played move from PGN
             let engine_ok = engine.make_move(played_move)?;
             if !engine_ok {
                 return Err(format!(

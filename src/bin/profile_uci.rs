@@ -15,7 +15,7 @@ fn play_random_game_with_stockfish(
     engine.set_position_startpos();
 
     loop {
-        match engine.game().clone().turn_state() {
+        match engine.turn_state() {
             TurnState::Over(outcome) => return outcome,
             TurnState::Ongoing(moves) => {
                 // Ask stockfish to evaluate at depth 4

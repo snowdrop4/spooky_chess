@@ -36,11 +36,11 @@ def main() -> None:
             engine.set_position_pgn_start(pgn_game)
 
             for ply_index, played_move in enumerate(pgn_game.moves()):
-                # Get best move
+                # Get engine's best move
                 result = engine.go_depth(DEPTH)
                 print_analysis(ply_index, result)
 
-                # Play played move
+                # Play played move from PGN
                 engine_ok = engine.make_move(played_move)
                 if not engine_ok:
                     raise RuntimeError(f"failed to replay PGN move {played_move.to_lan()} at ply {ply_index + 1}")

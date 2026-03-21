@@ -5,7 +5,10 @@ pub use protocol::{InfoLine, SearchResult, UciError};
 use crate::color::Color;
 use crate::game::StandardGame;
 use crate::r#move::Move;
+use crate::outcome::{GameOutcome, TurnState};
 use crate::pgn::PgnGame;
+use crate::pieces::Piece;
+use crate::position::Position;
 
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -228,14 +231,110 @@ impl UciEngine {
         self.game.turn()
     }
 
+    pub fn fullmove_number(&self) -> u32 {
+        self.game.fullmove_number()
+    }
+
+    pub fn halfmove_clock(&self) -> u32 {
+        self.game.halfmove_clock()
+    }
+
+    pub fn castling_enabled(&self) -> bool {
+        self.game.castling_enabled()
+    }
+
+    pub fn has_kingside_castling_rights(&self, color: Color) -> bool {
+        self.game.castling_rights().has_kingside(color)
+    }
+
+    pub fn has_queenside_castling_rights(&self, color: Color) -> bool {
+        self.game.castling_rights().has_queenside(color)
+    }
+
     /// Check if the game is over.
     pub fn is_over(&mut self) -> bool {
         self.game.is_over()
     }
 
+    pub fn outcome(&mut self) -> Option<GameOutcome> {
+        self.game.outcome()
+    }
+
+    pub fn turn_state(&mut self) -> TurnState {
+        self.game.turn_state()
+    }
+
+    pub fn is_check(&self) -> bool {
+        self.game.is_check()
+    }
+
+    pub fn is_checkmate(&mut self) -> bool {
+        self.game.is_checkmate()
+    }
+
+    pub fn is_stalemate(&mut self) -> bool {
+        self.game.is_stalemate()
+    }
+
+    pub fn is_insufficient_material(&self) -> bool {
+        self.game.is_insufficient_material()
+    }
+
+    pub fn has_legal_en_passant(&mut self) -> bool {
+        self.game.has_legal_en_passant()
+    }
+
+    pub fn en_passant_square(&self) -> Option<Position> {
+        self.game.en_passant_square()
+    }
+
     /// Get legal moves from the current position.
     pub fn legal_moves(&mut self) -> Vec<Move> {
         self.game.legal_moves()
+    }
+
+    pub fn pseudo_legal_moves(&self) -> Vec<Move> {
+        self.game.pseudo_legal_moves()
+    }
+
+    pub fn legal_moves_for_position(&mut self, src: &Position) -> Vec<Move> {
+        self.game.legal_moves_for_position(src)
+    }
+
+    pub fn is_legal_move(&mut self, mv: &Move) -> bool {
+        self.game.is_legal_move(mv)
+    }
+
+    pub fn move_to_lan(&mut self, mv: &Move) -> String {
+        self.game.move_to_lan(mv)
+    }
+
+    pub fn move_from_lan(&self, lan: &str) -> Result<Move, String> {
+        self.game.move_from_lan(lan)
+    }
+
+    pub fn move_to_san(&mut self, mv: &Move) -> String {
+        self.game.move_to_san(mv)
+    }
+
+    pub fn move_from_san(&mut self, san: &str) -> Result<Move, String> {
+        self.game.move_from_san(san)
+    }
+
+    pub fn width(&self) -> usize {
+        self.game.board().width()
+    }
+
+    pub fn height(&self) -> usize {
+        self.game.board().height()
+    }
+
+    pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
+        self.game.get_piece(pos)
+    }
+
+    pub fn to_fen(&mut self) -> String {
+        self.game.to_fen()
     }
 
     /// Undo the last move. Returns false if there is no move to undo.

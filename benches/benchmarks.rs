@@ -150,7 +150,7 @@ fn bench_random_playout_stockfish(c: &mut Criterion) {
             engine.set_position_startpos();
             let mut rng = SmallRng::seed_from_u64(456);
             loop {
-                match engine.game().clone().turn_state() {
+                match engine.turn_state() {
                     TurnState::Over(outcome) => break black_box(Some(outcome)),
                     TurnState::Ongoing(moves) => {
                         // Ask stockfish to evaluate at depth 4
