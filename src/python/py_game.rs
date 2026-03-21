@@ -5,6 +5,7 @@ use super::py_move::PyMove;
 use super::py_outcome::PyGameOutcome;
 use super::py_piece::PyPiece;
 use super::py_position::PyPosition;
+use super::py_turn_state::PyTurnState;
 use crate::color::Color;
 use crate::encode;
 use crate::position::Position;
@@ -258,6 +259,10 @@ impl PyGame {
 
     pub fn outcome(&mut self) -> Option<PyGameOutcome> {
         dispatch_game!(&mut self.inner, g => g.outcome().map(|outcome| PyGameOutcome { outcome }))
+    }
+
+    pub fn turn_state(&mut self) -> PyTurnState {
+        dispatch_game!(&mut self.inner, g => PyTurnState { state: g.turn_state() })
     }
 
     pub fn to_fen(&mut self) -> String {

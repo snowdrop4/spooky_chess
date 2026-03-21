@@ -11,13 +11,14 @@ def simulate_game_rust(moves_count: int) -> int:
     rust_game = spooky_chess.Game.standard()
     moves_made = 0
 
-    while moves_made < moves_count and not rust_game.is_over():
-        legal_moves = rust_game.legal_moves()
-        if legal_moves:
-            rust_game.make_move_unchecked(random.choice(legal_moves))
-            moves_made += 1
-        else:
+    while moves_made < moves_count:
+        turn_state = rust_game.turn_state()
+        legal_moves = turn_state.legal_moves()
+        if not legal_moves:
             break
+
+        rust_game.make_move_unchecked(random.choice(legal_moves))
+        moves_made += 1
 
     return moves_made
 

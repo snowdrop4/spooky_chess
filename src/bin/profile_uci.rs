@@ -4,6 +4,7 @@
 use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
+use spooky_chess::outcome::TurnState;
 use spooky_chess::uci::UciEngine;
 
 #[hotpath::measure]
@@ -14,24 +15,19 @@ fn play_random_game_with_stockfish(
     engine.set_position_startpos();
 
     loop {
-        if engine.is_over() {
-            return engine
-                .game()
-                .clone()
-                .outcome()
-                .expect("game is over but outcome() returned None");
+        match engine.game().clone().turn_state() {
+            TurnState::Over(outcome) => return outcome,
+            TurnState::Ongoing(moves) => {
+                // Ask stockfish to evaluate at depth 4
+                engine.go_depth(4).expect("stockfish go_depth failed");
+
+                // Play a random move to keep games varied
+                let mv = moves
+                    .choose(rng)
+                    .expect("play_random_game_with_stockfish: legal moves list must not be empty");
+                engine.make_move(mv).expect("make_move failed");
+            }
         }
-
-        let moves = engine.legal_moves();
-
-        // Ask stockfish to evaluate at depth 4
-        engine.go_depth(4).expect("stockfish go_depth failed");
-
-        // Play a random move to keep games varied
-        let mv = moves
-            .choose(rng)
-            .expect("play_random_game_with_stockfish: legal moves list must not be empty");
-        engine.make_move(mv).expect("make_move failed");
     }
 }
 

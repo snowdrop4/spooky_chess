@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::r#move::Move;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -10,6 +11,12 @@ pub enum GameOutcome {
     ThreefoldRepetition,
     FiftyMoveRule,
     Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TurnState {
+    Over(GameOutcome),
+    Ongoing(Vec<Move>),
 }
 
 #[hotpath::measure_all]

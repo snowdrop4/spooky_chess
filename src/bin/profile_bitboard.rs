@@ -5,21 +5,22 @@ use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
 use spooky_chess::game::Game;
+use spooky_chess::outcome::TurnState;
 
 #[hotpath::measure]
 fn play_random_game(rng: &mut SmallRng) -> spooky_chess::outcome::GameOutcome {
     let mut game = Game::<8, 8>::standard();
 
     loop {
-        if let Some(outcome) = game.outcome() {
-            return outcome;
+        match game.turn_state() {
+            TurnState::Over(outcome) => return outcome,
+            TurnState::Ongoing(moves) => {
+                let mv = moves
+                    .choose(rng)
+                    .expect("play_random_game: legal moves list must not be empty");
+                game.make_move_unchecked(mv);
+            }
         }
-
-        let moves = game.legal_moves();
-        let mv = moves
-            .choose(rng)
-            .expect("play_random_game: legal moves list must not be empty");
-        game.make_move_unchecked(mv);
     }
 }
 

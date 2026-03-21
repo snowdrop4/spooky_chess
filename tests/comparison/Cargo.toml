@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 spooky_chess = { path = "../../" }
 rand = "0.10.0"
+
+[dependencies]
+spooky_chess = { path = "../../" }
+rand = "0.10.0"

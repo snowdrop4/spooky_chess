@@ -21,12 +21,8 @@ def _play_random_game(max_moves: int = 200, seed: int | None = None) -> tuple[in
         # Compare states before making a move
         _compare_game_states(rust_game, python_board, move_history)
 
-        # Check if game is over
-        if rust_game.is_over():
-            break
-
-        # Get legal moves from both implementations
-        rust_moves = rust_game.legal_moves()
+        turn_state = rust_game.turn_state()
+        rust_moves = turn_state.legal_moves()
         python_moves = list(python_board.legal_moves)
 
         if not rust_moves or not python_moves:

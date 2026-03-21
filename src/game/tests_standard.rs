@@ -1,7 +1,7 @@
 use super::*;
 use crate::color::Color;
 use crate::r#move::{Move, MoveFlags};
-use crate::outcome::GameOutcome;
+use crate::outcome::{GameOutcome, TurnState};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 use rstest::rstest;
@@ -135,6 +135,30 @@ fn outcome_stalemate() {
     );
     assert!(game.is_stalemate());
     assert_eq!(game.outcome(), Some(GameOutcome::Stalemate));
+}
+
+#[test]
+fn turn_state_ongoing_returns_legal_moves() {
+    let mut game = Game8x8::standard();
+    let legal = game.legal_moves();
+
+    match game.turn_state() {
+        TurnState::Ongoing(moves) => assert_eq!(moves, legal),
+        TurnState::Over(outcome) => panic!("expected ongoing turn state, got {outcome:?}"),
+    }
+}
+
+#[test]
+fn turn_state_stalemate_returns_outcome() {
+    let fen = "K7/8/1q6/8/8/8/8/2k5 w - - 0 1";
+    let mut game = Game8x8::new(fen, false).expect("Failed to parse stalemate FEN");
+
+    match game.turn_state() {
+        TurnState::Over(outcome) => assert_eq!(outcome, GameOutcome::Stalemate),
+        TurnState::Ongoing(moves) => {
+            panic!("expected terminal turn state, got {} moves", moves.len())
+        }
+    }
 }
 
 #[test]

@@ -132,3 +132,31 @@ def test_standard_game_multiple_move_unmake_sequence() -> None:
 
     # Should be back to initial position
     assert game.to_fen() == initial_fen
+
+
+def test_turn_state_ongoing_exposes_legal_moves() -> None:
+    game = spooky_chess.Game.standard()
+
+    legal_moves = game.legal_moves()
+    turn_state = game.turn_state()
+
+    assert turn_state.is_over() is False
+    assert turn_state.outcome() is None
+    assert turn_state.legal_moves() == legal_moves
+
+
+def test_turn_state_terminal_exposes_outcome() -> None:
+    game = spooky_chess.Game(
+        width=8,
+        height=8,
+        fen="K7/8/1q6/8/8/8/8/2k5 w - - 0 1",
+        castling_enabled=False,
+    )
+
+    turn_state = game.turn_state()
+
+    assert turn_state.is_over() is True
+    assert turn_state.legal_moves() == []
+    outcome = turn_state.outcome()
+    assert outcome is not None
+    assert str(outcome) == "stalemate"

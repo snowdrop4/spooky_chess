@@ -7,6 +7,7 @@ use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
 use spooky_chess::encode::encode_game_planes;
 use spooky_chess::game::StandardGame;
+use spooky_chess::outcome::TurnState;
 use spooky_chess::uci::UciEngine;
 use std::hint::black_box;
 
@@ -97,17 +98,17 @@ fn bench_random_playout(c: &mut Criterion) {
         b.iter(|| {
             let mut game = StandardGame::standard();
             let mut rng = SmallRng::seed_from_u64(123);
-            while !game.is_over() {
-                let moves = game.legal_moves();
-                if moves.is_empty() {
-                    break;
+            loop {
+                match game.turn_state() {
+                    TurnState::Over(outcome) => break black_box(Some(outcome)),
+                    TurnState::Ongoing(moves) => {
+                        let mv = moves
+                            .choose(&mut rng)
+                            .expect("bench_random_playout: legal moves must not be empty");
+                        game.make_move_unchecked(mv);
+                    }
                 }
-                let mv = moves
-                    .choose(&mut rng)
-                    .expect("bench_random_playout: legal moves must not be empty");
-                game.make_move_unchecked(mv);
             }
-            black_box(game.outcome())
         })
     });
 }
@@ -148,21 +149,21 @@ fn bench_random_playout_stockfish(c: &mut Criterion) {
             let mut engine = UciEngine::new("stockfish", &[]).expect("failed to spawn stockfish");
             engine.set_position_startpos();
             let mut rng = SmallRng::seed_from_u64(456);
-            while !engine.is_over() {
-                let moves = engine.legal_moves();
-                if moves.is_empty() {
-                    break;
+            loop {
+                match engine.game().clone().turn_state() {
+                    TurnState::Over(outcome) => break black_box(Some(outcome)),
+                    TurnState::Ongoing(moves) => {
+                        // Ask stockfish to evaluate at depth 4
+                        let result = engine.go_depth(4).expect("stockfish go_depth failed");
+                        black_box(&result);
+                        // Play a random move (not stockfish's best) to keep games varied
+                        let mv = moves.choose(&mut rng).expect(
+                            "bench_random_playout_stockfish: legal moves must not be empty",
+                        );
+                        engine.make_move(mv).expect("make_move failed");
+                    }
                 }
-                // Ask stockfish to evaluate at depth 4
-                let result = engine.go_depth(4).expect("stockfish go_depth failed");
-                black_box(&result);
-                // Play a random move (not stockfish's best) to keep games varied
-                let mv = moves
-                    .choose(&mut rng)
-                    .expect("bench_random_playout_stockfish: legal moves must not be empty");
-                engine.make_move(mv).expect("make_move failed");
             }
-            black_box(engine.game().clone().outcome())
         })
     });
 }

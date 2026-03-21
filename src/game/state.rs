@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::r#move::{Move, MoveFlags};
-use crate::outcome::GameOutcome;
+use crate::outcome::{GameOutcome, TurnState};
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 
@@ -414,6 +414,33 @@ where
         } else {
             Some(GameOutcome::Stalemate)
         }
+    }
+
+    pub fn turn_state(&mut self) -> TurnState {
+        if self.halfmove_clock >= 150 {
+            return TurnState::Over(GameOutcome::FiftyMoveRule);
+        }
+
+        if self.is_insufficient_material() {
+            return TurnState::Over(GameOutcome::InsufficientMaterial);
+        }
+
+        let moves = self.legal_moves();
+        if !moves.is_empty() {
+            return TurnState::Ongoing(moves);
+        }
+
+        let outcome = if self.is_check() {
+            if self.turn == Color::White {
+                GameOutcome::BlackWin
+            } else {
+                GameOutcome::WhiteWin
+            }
+        } else {
+            GameOutcome::Stalemate
+        };
+
+        TurnState::Over(outcome)
     }
 
     pub fn is_insufficient_material(&self) -> bool {

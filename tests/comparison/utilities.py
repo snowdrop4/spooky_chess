@@ -54,7 +54,8 @@ def _compare_game_states(rust_game: spooky_chess.Game, python_board: chess.Board
     )
 
     # Compare LAN --------------------------------------------------------------
-    rust_moves_lan: set[str] = {move.to_lan() for move in rust_game.legal_moves()}
+    legal_moves = rust_game.legal_moves()
+    rust_moves_lan: set[str] = {move.to_lan() for move in legal_moves}
     python_moves_lan: set[str] = {move.uci() for move in python_board.legal_moves}
 
     # Check if the same moves are legal
@@ -69,7 +70,7 @@ def _compare_game_states(rust_game: spooky_chess.Game, python_board: chess.Board
 
     # Compare SAN --------------------------------------------------------------
 
-    rust_moves_san: set[str] = {rust_game.move_to_san(move) for move in rust_game.legal_moves()}
+    rust_moves_san: set[str] = {rust_game.move_to_san(move) for move in legal_moves}
     python_moves_san: set[str] = {python_board.san(move) for move in python_board.legal_moves}
 
     # Check if the same moves are legal

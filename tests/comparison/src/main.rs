@@ -5,19 +5,24 @@ use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
 use spooky_chess::game::StandardGame;
+use spooky_chess::outcome::TurnState;
 use std::time::Instant;
 
 fn simulate_game(rng: &mut SmallRng, moves_count: usize) -> usize {
     let mut game = StandardGame::standard();
     let mut moves_made = 0;
 
-    while moves_made < moves_count && !game.is_over() {
-        let legal_moves = game.legal_moves();
-        if !legal_moves.is_empty() {
-            game.make_move_unchecked(legal_moves.choose(rng).expect("simulate_game: legal moves list must not be empty"));
-            moves_made += 1;
-        } else {
-            break;
+    while moves_made < moves_count {
+        match game.turn_state() {
+            TurnState::Over(_) => break,
+            TurnState::Ongoing(legal_moves) => {
+                game.make_move_unchecked(
+                    legal_moves
+                        .choose(rng)
+                        .expect("simulate_game: legal moves list must not be empty"),
+                );
+                moves_made += 1;
+            }
         }
     }
 

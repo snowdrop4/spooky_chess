@@ -35,6 +35,7 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPiece>()?;
     m.add_class::<PyPosition>()?;
     m.add_class::<PyGameOutcome>()?;
+    m.add_class::<PyTurnState>()?;
     m.add_class::<PyPgnGame>()?;
     m.add_class::<PyUciEngine>()?;
     m.add_class::<PySearchResult>()?;
