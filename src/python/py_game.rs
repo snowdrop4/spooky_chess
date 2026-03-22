@@ -159,11 +159,11 @@ impl PyGame {
     // ---------------------------------------------------------------------
 
     pub fn width(&self) -> usize {
-        dispatch_game!(&self.inner, g => g.board().width())
+        dispatch_game!(&self.inner, g => g.width())
     }
 
     pub fn height(&self) -> usize {
-        dispatch_game!(&self.inner, g => g.board().height())
+        dispatch_game!(&self.inner, g => g.height())
     }
 
     pub fn get_piece(&self, col: u8, row: u8) -> Option<PyPiece> {
@@ -178,8 +178,8 @@ impl PyGame {
 
     pub fn legal_action_indices(&mut self) -> Vec<usize> {
         dispatch_game!(&mut self.inner, g => {
-            let width = g.board().width();
-            let height = g.board().height();
+            let width = g.width();
+            let height = g.height();
             g.legal_moves()
                 .into_iter()
                 .filter_map(|m| encode::encode_action(&m, width, height))
@@ -201,7 +201,7 @@ impl PyGame {
 
     pub fn action_planes_count(&self) -> usize {
         dispatch_game!(&self.inner, g => {
-            encode::get_move_planes_count(g.board().width(), g.board().height())
+            encode::get_move_planes_count(g.width(), g.height())
         })
     }
 
@@ -213,12 +213,12 @@ impl PyGame {
 
     pub fn total_actions(&self) -> usize {
         dispatch_game!(&self.inner, g => {
-            encode::get_total_actions(g.board().width(), g.board().height())
+            encode::get_total_actions(g.width(), g.height())
         })
     }
 
     pub fn board_shape(&self) -> (usize, usize) {
-        dispatch_game!(&self.inner, g => (g.board().height(), g.board().width()))
+        dispatch_game!(&self.inner, g => (g.height(), g.width()))
     }
 
     pub fn input_plane_count(&self) -> usize {
@@ -279,7 +279,7 @@ impl PyGame {
         use std::hash::{Hash, Hasher};
         dispatch_game!(&self.inner, g => {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            g.board().hash(&mut hasher);
+            g.board_hash(&mut hasher);
             (g.turn() as i8).hash(&mut hasher);
             g.castling_rights().hash(&mut hasher);
             if let Some(ep_square) = g.en_passant_square() {
@@ -302,8 +302,8 @@ impl PyGame {
         dispatch_game!(&mut self.inner, g => {
             format!(
                 "Game(width={}, height={}, turn={:?}, over={})",
-                g.board().width(),
-                g.board().height(),
+                g.width(),
+                g.height(),
                 g.turn(),
                 g.is_over(),
             )

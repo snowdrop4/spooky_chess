@@ -39,11 +39,7 @@ impl Position {
 
     pub fn to_algebraic(&self) -> String {
         if self.col < 26 {
-            format!(
-                "{}{}",
-                (b'a' + self.col) as char,
-                usize::from(self.row) + 1
-            )
+            format!("{}{}", (b'a' + self.col) as char, usize::from(self.row) + 1)
         } else {
             format!("{}-{}", self.col, usize::from(self.row) + 1)
         }

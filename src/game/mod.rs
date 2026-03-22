@@ -1,11 +1,13 @@
 use arrayvec::ArrayVec;
+use smallvec::SmallVec;
 
 use crate::bitboard::BoardGeometry;
 use crate::board::Board;
 use crate::color::Color;
 use crate::r#move::Move;
-use crate::pieces::Piece;
+use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
+use std::hash::Hash;
 
 mod action;
 mod check_pin;
@@ -26,6 +28,77 @@ mod tests_san;
 #[cfg(test)]
 mod tests_actions;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PieceCounts {
+    /// counts[piece_type as usize][color_index] where color_index: White=0, Black=1
+    counts: [[u8; 2]; 6],
+}
+
+impl Default for PieceCounts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PieceCounts {
+    #[inline]
+    fn color_idx(color: Color) -> usize {
+        match color {
+            Color::White => 0,
+            Color::Black => 1,
+        }
+    }
+
+    pub fn new() -> Self {
+        PieceCounts {
+            counts: [[0; 2]; 6],
+        }
+    }
+
+    pub(crate) fn from_board<const W: usize, const H: usize>(board: &Board<W, H>) -> Self
+    where
+        [(); (W * H).div_ceil(64)]:,
+    {
+        let mut counts = PieceCounts::new();
+        for piece_type in [
+            PieceType::Pawn,
+            PieceType::Knight,
+            PieceType::Bishop,
+            PieceType::Rook,
+            PieceType::Queen,
+            PieceType::King,
+        ] {
+            let bb = board.piece_type_bb(piece_type);
+            let white_count = (bb & board.color_bb(Color::White)).count() as u8;
+            let black_count = (bb & board.color_bb(Color::Black)).count() as u8;
+            counts.counts[piece_type as usize][0] = white_count;
+            counts.counts[piece_type as usize][1] = black_count;
+        }
+        counts
+    }
+
+    #[inline]
+    pub fn increment(&mut self, piece_type: PieceType, color: Color) {
+        self.counts[piece_type as usize][Self::color_idx(color)] += 1;
+    }
+
+    #[inline]
+    pub fn decrement(&mut self, piece_type: PieceType, color: Color) {
+        debug_assert!(
+            self.counts[piece_type as usize][Self::color_idx(color)] > 0,
+            "PieceCounts underflow for {:?} {:?}",
+            piece_type,
+            color,
+        );
+        self.counts[piece_type as usize][Self::color_idx(color)] -= 1;
+    }
+
+    #[inline]
+    pub fn get(&self, piece_type: PieceType, color: Color) -> u8 {
+        self.counts[piece_type as usize][Self::color_idx(color)]
+    }
+}
+
 #[derive(Clone)]
 pub struct MoveHistoryEntry {
     pub mv: Move,
@@ -33,6 +106,7 @@ pub struct MoveHistoryEntry {
     castling_rights: CastlingRights,
     en_passant: Option<Position>,
     halfmove_clock: u32,
+    piece_counts: PieceCounts,
 }
 
 #[derive(Clone)]
@@ -42,7 +116,7 @@ where
 {
     board: Board<W, H>,
     turn: Color,
-    move_history: Vec<MoveHistoryEntry>,
+    move_history: SmallVec<[MoveHistoryEntry; 256]>,
 
     castling_rights: CastlingRights,
     castling_enabled: bool,
@@ -54,6 +128,8 @@ where
 
     white_king_pos: Position,
     black_king_pos: Position,
+
+    piece_counts: PieceCounts,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -222,10 +298,13 @@ where
             black_king_pos,
         );
 
+        // Count pieces from the board
+        let piece_counts = PieceCounts::from_board(&board);
+
         Ok(Game {
             board,
             turn,
-            move_history: Vec::new(),
+            move_history: SmallVec::new(),
             castling_rights,
             castling_enabled,
             en_passant,
@@ -233,6 +312,7 @@ where
             fullmove_number,
             white_king_pos,
             black_king_pos,
+            piece_counts,
         })
     }
 
@@ -249,15 +329,39 @@ where
     }
 
     pub fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
+        // Update piece counts for the removed piece
+        if let Some(existing) = self.board.get_piece(pos) {
+            self.piece_counts
+                .decrement(existing.piece_type, existing.color);
+        }
+        // Update piece counts for the new piece
+        if let Some(ref p) = piece {
+            self.piece_counts.increment(p.piece_type, p.color);
+        }
         self.board.set_piece(pos, piece)
     }
 
-    pub fn board(&self) -> &Board<W, H> {
-        &self.board
+    /// Clear the board and reset piece counts.
+    pub fn clear_board(&mut self) {
+        self.board.clear();
+        self.piece_counts = PieceCounts::new();
     }
 
-    pub fn board_mut(&mut self) -> &mut Board<W, H> {
-        &mut self.board
+    /// Recompute piece counts from the board. Use after direct board manipulation.
+    pub fn sync_piece_counts(&mut self) {
+        self.piece_counts = PieceCounts::from_board(&self.board);
+    }
+
+    pub fn pieces(&self, color: Color) -> Vec<(Position, Piece)> {
+        self.board.pieces(color)
+    }
+
+    pub(crate) fn pieces_iter(&self, color: Color) -> crate::board::PieceIterator<'_, W, H> {
+        self.board.pieces_iter(color)
+    }
+
+    pub fn board_hash<HH: std::hash::Hasher>(&self, state: &mut HH) {
+        self.board.hash(state);
     }
 
     pub fn turn(&self) -> Color {
@@ -286,6 +390,10 @@ where
 
     pub fn castling_rights(&self) -> &CastlingRights {
         &self.castling_rights
+    }
+
+    pub fn piece_counts(&self) -> &PieceCounts {
+        &self.piece_counts
     }
 }
 

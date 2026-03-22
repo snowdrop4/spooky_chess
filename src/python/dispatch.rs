@@ -1,4 +1,3 @@
-use crate::board::Board;
 use crate::game::Game;
 
 /// Generates the cartesian product of W and H ranges, then invokes $mac with all (W, H) pairs.
@@ -24,23 +23,10 @@ macro_rules! define_wh_dispatch {
                 $( [<W $w H $h>](Game<$w, $h>), )*
             }
 
-            #[derive(Clone)]
-            pub(super) enum BoardInner {
-                $( [<W $w H $h>](Board<$w, $h>), )*
-            }
-
             macro_rules! dispatch_game {
                 ($self_:expr, $g:ident => $body:expr) => {
                     match $self_ {
                         $( GameInner::[<W $w H $h>]($g) => $body, )*
-                    }
-                };
-            }
-
-            macro_rules! dispatch_board {
-                ($self_:expr, $b:ident => $body:expr) => {
-                    match $self_ {
-                        $( BoardInner::[<W $w H $h>]($b) => $body, )*
                     }
                 };
             }
@@ -56,23 +42,6 @@ macro_rules! define_wh_dispatch {
                 GameInner::W8H8(Game::standard())
             }
 
-            pub(super) fn make_board_inner(width: usize, height: usize, fen: &str) -> Result<BoardInner, String> {
-                match (width, height) {
-                    $( ($w, $h) => Ok(BoardInner::[<W $w H $h>](Board::new(fen)?)), )*
-                    _ => Err(format!("Unsupported board size: {}x{}", width, height)),
-                }
-            }
-
-            pub(super) fn make_empty_board_inner(width: usize, height: usize) -> Result<BoardInner, String> {
-                match (width, height) {
-                    $( ($w, $h) => Ok(BoardInner::[<W $w H $h>](Board::empty())), )*
-                    _ => Err(format!("Unsupported board size: {}x{}", width, height)),
-                }
-            }
-
-            pub(super) fn make_standard_board_inner() -> BoardInner {
-                BoardInner::W8H8(Board::standard())
-            }
         }
     }
 }

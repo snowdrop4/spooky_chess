@@ -123,7 +123,9 @@ where
             check_mask = !Bitboard::empty();
         }
 
-        // Compute king danger squares (all enemy attacks with our king removed from occupancy)
+        // Compute king danger squares with our king removed from occupancy.
+        // This is sufficient for non-capturing king moves; king captures still
+        // need a targeted re-check with the captured blocker removed.
         let occupied_no_king = occupied.andnot(Bitboard::single(king_idx));
         let king_danger_squares = self.compute_enemy_attacks(opponent, occupied_no_king);
 

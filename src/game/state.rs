@@ -11,16 +11,19 @@ impl<const W: usize, const H: usize> Game<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    pub(super) fn is_square_attacked(&self, square: &Position, by_color: Color) -> bool {
-        let occupied = self.board.occupied();
+    pub(super) fn is_square_attacked_on(
+        &self,
+        square_idx: usize,
+        by_color: Color,
+        occupied: crate::bitboard::Bitboard<{ (W * H).div_ceil(64) }>,
+    ) -> bool {
         let enemy = self.board.color_bb(by_color);
-        let sq_idx = square.to_index(W);
         let geo = Self::geo();
 
         // 1. Pawn attacks
         let pawns = self.board.piece_type_bb(PieceType::Pawn) & enemy;
         if !pawns.is_empty() {
-            let pawn_attackers = geo.pawn_attacks(sq_idx, by_color != Color::White);
+            let pawn_attackers = geo.pawn_attacks(square_idx, by_color != Color::White);
             if !(pawn_attackers & pawns).is_empty() {
                 return true;
             }
@@ -28,13 +31,13 @@ where
 
         // 2. Knight attacks
         let knights = self.board.piece_type_bb(PieceType::Knight) & enemy;
-        if !knights.is_empty() && !(geo.knight_attacks(sq_idx) & knights).is_empty() {
+        if !knights.is_empty() && !(geo.knight_attacks(square_idx) & knights).is_empty() {
             return true;
         }
 
         // 3. King attacks
         let kings = self.board.piece_type_bb(PieceType::King) & enemy;
-        if !kings.is_empty() && !(geo.king_attacks(sq_idx) & kings).is_empty() {
+        if !kings.is_empty() && !(geo.king_attacks(square_idx) & kings).is_empty() {
             return true;
         }
 
@@ -42,7 +45,7 @@ where
         let queens = self.board.piece_type_bb(PieceType::Queen) & enemy;
         let rooks_queens = (self.board.piece_type_bb(PieceType::Rook) & enemy) | queens;
         if !rooks_queens.is_empty() {
-            let ortho = geo.orthogonal_attacks(sq_idx, occupied);
+            let ortho = geo.orthogonal_attacks(square_idx, occupied);
             if !(ortho & rooks_queens).is_empty() {
                 return true;
             }
@@ -51,13 +54,17 @@ where
         // 5. Sliding attacks — bishops/queens along diagonals
         let bishops_queens = (self.board.piece_type_bb(PieceType::Bishop) & enemy) | queens;
         if !bishops_queens.is_empty() {
-            let diag = geo.diagonal_attacks(sq_idx, occupied);
+            let diag = geo.diagonal_attacks(square_idx, occupied);
             if !(diag & bishops_queens).is_empty() {
                 return true;
             }
         }
 
         false
+    }
+
+    pub(super) fn is_square_attacked(&self, square: &Position, by_color: Color) -> bool {
+        self.is_square_attacked_on(square.to_index(W), by_color, self.board.occupied())
     }
 
     pub(super) fn is_in_check(&self, color: Color) -> bool {
@@ -444,36 +451,40 @@ where
     }
 
     pub fn is_insufficient_material(&self) -> bool {
-        let white = self.board.color_bb(Color::White);
-        let black = self.board.color_bb(Color::Black);
-
-        let pawns = self.board.piece_type_bb(PieceType::Pawn);
-        let rooks = self.board.piece_type_bb(PieceType::Rook);
-        let queens = self.board.piece_type_bb(PieceType::Queen);
-        let bishops = self.board.piece_type_bb(PieceType::Bishop);
-        let knights = self.board.piece_type_bb(PieceType::Knight);
+        debug_assert_eq!(
+            self.piece_counts,
+            super::PieceCounts::from_board(&self.board),
+            "piece_counts desynced from board",
+        );
+        let pc = &self.piece_counts;
 
         // If either side has pawns, queens, or rooks, there's sufficient material
-        if !(pawns | rooks | queens).is_empty() {
+        if pc.get(PieceType::Pawn, Color::White) > 0
+            || pc.get(PieceType::Pawn, Color::Black) > 0
+            || pc.get(PieceType::Rook, Color::White) > 0
+            || pc.get(PieceType::Rook, Color::Black) > 0
+            || pc.get(PieceType::Queen, Color::White) > 0
+            || pc.get(PieceType::Queen, Color::Black) > 0
+        {
             return false;
         }
 
         // Now we only have kings, bishops, and knights
-        let white_bishops = (bishops & white).count();
-        let white_knights = (knights & white).count();
-        let black_bishops = (bishops & black).count();
-        let black_knights = (knights & black).count();
+        let white_bishops = pc.get(PieceType::Bishop, Color::White) as u32;
+        let white_knights = pc.get(PieceType::Knight, Color::White) as u32;
+        let black_bishops = pc.get(PieceType::Bishop, Color::Black) as u32;
+        let black_knights = pc.get(PieceType::Knight, Color::Black) as u32;
 
         let white_minor_pieces = white_bishops + white_knights;
         let black_minor_pieces = black_bishops + black_knights;
 
-        // If only bishops and knights remain, check for insufficient material
         // Special case: if both sides only have bishops (no knights), and all bishops are on the same color, it's insufficient
-        if white_knights == 0 && black_knights == 0 && (white_bishops > 0 || black_bishops > 0) {
-            // Check if all bishops on the board are on the same color
-            if self.are_all_bishops_on_same_color() {
-                return true;
-            }
+        if white_knights == 0
+            && black_knights == 0
+            && (white_bishops > 0 || black_bishops > 0)
+            && self.are_all_bishops_on_same_color()
+        {
+            return true;
         }
 
         // Check for other insufficient material cases:

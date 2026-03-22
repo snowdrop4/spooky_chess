@@ -8,7 +8,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
-pub struct Board<const W: usize, const H: usize>
+pub(crate) struct Board<const W: usize, const H: usize>
 where
     [(); (W * H).div_ceil(64)]:,
 {
@@ -63,13 +63,13 @@ impl<const W: usize, const H: usize> Board<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    pub fn new(fen: &str) -> Result<Self, String> {
+    pub(crate) fn new(fen: &str) -> Result<Self, String> {
         let mut board = Self::empty();
         board.load_fen(fen)?;
         Ok(board)
     }
 
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Board {
             pawns: Bitboard::empty(),
             knights: Bitboard::empty(),
@@ -82,21 +82,13 @@ where
         }
     }
 
-    pub fn width(&self) -> usize {
-        W
-    }
-
-    pub fn height(&self) -> usize {
-        H
-    }
-
     #[inline]
     fn index(col: usize, row: usize) -> usize {
         row * W + col
     }
 
     #[inline]
-    pub fn occupied(&self) -> Bitboard<{ (W * H).div_ceil(64) }> {
+    pub(crate) fn occupied(&self) -> Bitboard<{ (W * H).div_ceil(64) }> {
         debug_assert!(
             (self.white & self.black).is_empty(),
             "board corruption: white and black bitboards overlap",
@@ -105,7 +97,7 @@ where
     }
 
     #[inline]
-    pub fn color_bb(&self, color: Color) -> Bitboard<{ (W * H).div_ceil(64) }> {
+    pub(crate) fn color_bb(&self, color: Color) -> Bitboard<{ (W * H).div_ceil(64) }> {
         match color {
             Color::White => self.white,
             Color::Black => self.black,
@@ -113,7 +105,7 @@ where
     }
 
     #[inline]
-    pub fn piece_type_bb(&self, pt: PieceType) -> Bitboard<{ (W * H).div_ceil(64) }> {
+    pub(crate) fn piece_type_bb(&self, pt: PieceType) -> Bitboard<{ (W * H).div_ceil(64) }> {
         match pt {
             PieceType::Pawn => self.pawns,
             PieceType::Knight => self.knights,
@@ -145,7 +137,7 @@ where
     }
 
     #[inline]
-    pub fn piece_type_at(&self, index: usize) -> Option<PieceType> {
+    pub(crate) fn piece_type_at(&self, index: usize) -> Option<PieceType> {
         // Branchless: extract one bit from each piece-type bitboard in parallel,
         // combine into a 6-bit key, and do a single table lookup.
         let key = self.pawns.bit_at(index)
@@ -176,7 +168,7 @@ where
         TABLE[key as usize]
     }
 
-    pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
+    pub(crate) fn get_piece(&self, pos: &Position) -> Option<Piece> {
         if !pos.is_valid(W, H) {
             return None;
         }
@@ -201,7 +193,7 @@ where
         Some(Piece::new(pt, color))
     }
 
-    pub fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
+    pub(crate) fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
         if !pos.is_valid(W, H) {
             return;
         }
@@ -215,7 +207,7 @@ where
 
     /// Remove a known piece from the board. Caller must guarantee `piece` matches what's at `pos`.
     #[inline]
-    pub fn remove_piece(&mut self, pos: &Position, piece: &Piece) {
+    pub(crate) fn remove_piece(&mut self, pos: &Position, piece: &Piece) {
         debug_assert!(
             pos.is_valid(W, H),
             "remove_piece: position ({}, {}) out of bounds for {}x{} board",
@@ -245,7 +237,7 @@ where
 
     /// Place a piece on the board. The target square must be empty.
     #[inline]
-    pub fn place_piece(&mut self, pos: &Position, piece: &Piece) {
+    pub(crate) fn place_piece(&mut self, pos: &Position, piece: &Piece) {
         debug_assert!(
             pos.is_valid(W, H),
             "place_piece: position ({}, {}) out of bounds for {}x{} board",
@@ -265,7 +257,7 @@ where
         self.color_bb_mut(piece.color).set(idx);
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.pawns = Bitboard::empty();
         self.knights = Bitboard::empty();
         self.bishops = Bitboard::empty();
@@ -276,7 +268,7 @@ where
         self.black = Bitboard::empty();
     }
 
-    pub fn to_fen(&self) -> String {
+    pub(crate) fn to_fen(&self) -> String {
         let mut fen = String::new();
 
         for row in (0..H).rev() {
@@ -367,12 +359,12 @@ where
         Ok(())
     }
 
-    pub fn pieces(&self, color: Color) -> Vec<(Position, Piece)> {
+    pub(crate) fn pieces(&self, color: Color) -> Vec<(Position, Piece)> {
         self.pieces_iter(color).collect()
     }
 
     #[inline]
-    pub fn pieces_iter(&self, color: Color) -> PieceIterator<'_, W, H> {
+    pub(crate) fn pieces_iter(&self, color: Color) -> PieceIterator<'_, W, H> {
         PieceIterator {
             board: self,
             color,
@@ -380,7 +372,7 @@ where
         }
     }
 
-    pub fn find_king(&self, color: Color) -> Option<Position> {
+    pub(crate) fn find_king(&self, color: Color) -> Option<Position> {
         let king_bb = self.kings & self.color_bb(color);
         king_bb
             .lowest_bit_index()
@@ -388,7 +380,7 @@ where
     }
 }
 
-pub struct PieceIterator<'a, const W: usize, const H: usize>
+pub(crate) struct PieceIterator<'a, const W: usize, const H: usize>
 where
     [(); (W * H).div_ceil(64)]:,
 {
@@ -418,14 +410,6 @@ where
             .expect("next: piece type must exist for color bitboard index");
         let pos = Position::from_index(idx, W);
         Some((pos, Piece::new(pt, self.color)))
-    }
-}
-
-#[hotpath::measure_all]
-impl Board<8, 8> {
-    pub fn standard() -> Self {
-        Self::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
-            .expect("Failed to create standard board")
     }
 }
 
@@ -470,10 +454,8 @@ mod tests {
 
     #[test]
     fn test_custom_board_creation() {
-        let board: Board<6, 6> =
+        let _board: Board<6, 6> =
             Board::new("rnbqk1/pppppp/6/6/PPPPPP/RNBQK1").expect("Failed to create custom board");
-        assert_eq!(board.width(), 6);
-        assert_eq!(board.height(), 6);
     }
 
     #[test]
@@ -497,7 +479,8 @@ mod tests {
 
     #[test]
     fn test_board_standard_position() {
-        let board = StdBoard::standard();
+        let board =
+            StdBoard::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR").expect("standard FEN");
 
         // Check white pieces
         assert_eq!(
@@ -584,7 +567,8 @@ mod tests {
 
     #[test]
     fn test_board_fen_conversion() {
-        let board = StdBoard::standard();
+        let board =
+            StdBoard::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR").expect("standard FEN");
 
         let fen = board.to_fen();
         assert_eq!(fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");

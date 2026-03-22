@@ -6,7 +6,6 @@ use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
 
 use super::Game;
-use super::check_pin::CheckPinInfo;
 
 #[hotpath::measure_all]
 impl<const W: usize, const H: usize> Game<W, H>
@@ -176,6 +175,7 @@ where
     pub(super) fn for_each_legal_move(&mut self, mut f: impl FnMut(Move) -> bool) -> bool {
         let info = self.compute_check_pin_info();
         let color = self.turn;
+        let opponent = color.opposite();
         let king_pos = match color {
             Color::White => self.white_king_pos,
             Color::Black => self.black_king_pos,
@@ -183,6 +183,7 @@ where
         let king_idx = king_pos.to_index(W);
         let own = self.board.color_bb(color);
         let occupied = self.board.occupied();
+        let occupied_no_king = occupied.andnot(Bitboard::single(king_idx));
         let geo = Self::geo();
 
         // -----------------------------------------------------------------
@@ -193,8 +194,15 @@ where
             .andnot(own)
             .andnot(info.king_danger_squares);
         for dst_idx in targets.iter_ones() {
+            let is_capture = occupied.get(dst_idx);
+            if is_capture {
+                let occupied_after = occupied_no_king.andnot(Bitboard::single(dst_idx));
+                if self.is_square_attacked_on(dst_idx, opponent, occupied_after) {
+                    continue;
+                }
+            }
             let dst = Position::from_index(dst_idx, W);
-            let flags = if occupied.get(dst_idx) {
+            let flags = if is_capture {
                 MoveFlags::CAPTURE
             } else {
                 MoveFlags::empty()
@@ -213,8 +221,14 @@ where
                 let king_dst_col = usize::from(king_pos.col) + 2;
                 let rook_col = W - 1;
                 if king_dst_col < rook_col
-                    && let Some(mv) =
-                        self.try_castle_pin_aware(&king_pos, row, king_dst_col, rook_col, &info)
+                    && let Some(mv) = self.try_castle_legal(
+                        &king_pos,
+                        row,
+                        king_dst_col,
+                        rook_col,
+                        opponent,
+                        occupied_no_king,
+                    )
                     && f(mv)
                 {
                     return true;
@@ -222,8 +236,14 @@ where
             }
             if self.castling_rights.has_queenside(color) && king_pos.col >= 2 {
                 let king_dst_col = usize::from(king_pos.col) - 2;
-                if let Some(mv) = self.try_castle_pin_aware(&king_pos, row, king_dst_col, 0, &info)
-                    && f(mv)
+                if let Some(mv) = self.try_castle_legal(
+                    &king_pos,
+                    row,
+                    king_dst_col,
+                    0,
+                    opponent,
+                    occupied_no_king,
+                ) && f(mv)
                 {
                     return true;
                 }
@@ -237,7 +257,7 @@ where
             return false;
         }
 
-        let enemy = self.board.color_bb(color.opposite());
+        let enemy = self.board.color_bb(opponent);
 
         for idx in self.board.color_bb(color).iter_ones() {
             if idx == king_idx {
@@ -701,16 +721,19 @@ where
             }
         }
 
-        // All squares the king passes through (and lands on) must not be attacked
-        let (path_lo, path_hi) = if king_dst > king_src_col {
-            (king_src_col + 1, king_dst + 1)
-        } else {
-            (king_dst, king_src_col)
-        };
-        for col in path_lo..path_hi {
-            if self.is_square_attacked(&Position::from_usize(col, row), opponent) {
-                return;
-            }
+        let occupied_no_king = occupied.andnot(Bitboard::single(row * W + king_src_col));
+        if self
+            .try_castle_legal(
+                king_src,
+                row,
+                king_dst,
+                rook_col,
+                opponent,
+                occupied_no_king,
+            )
+            .is_none()
+        {
+            return;
         }
 
         moves.push(Move::from_position(
@@ -720,18 +743,17 @@ where
         ));
     }
 
-    /// Check castling legality using precomputed king_danger_squares instead
-    /// of per-square `is_square_attacked` calls. Returns the castle move if legal.
-    pub(super) fn try_castle_pin_aware(
+    /// Check castling legality against the current board using an occupancy
+    /// where the king has already been removed from its source square.
+    pub(super) fn try_castle_legal(
         &self,
         king_src: &Position,
         row: usize,
         king_dst: usize,
         rook_col: usize,
-        info: &CheckPinInfo<{ (W * H).div_ceil(64) }, { W * H }>,
+        opponent: Color,
+        occupied_no_king: Bitboard<{ (W * H).div_ceil(64) }>,
     ) -> Option<Move> {
-        let occupied = self.board.occupied();
-
         // All squares between king and rook must be empty
         let king_src_col = usize::from(king_src.col);
         let (lo, hi) = if king_src_col < rook_col {
@@ -740,7 +762,7 @@ where
             (rook_col + 1, king_src_col)
         };
         for col in lo..hi {
-            if occupied.get(row * W + col) {
+            if occupied_no_king.get(row * W + col) {
                 return None;
             }
         }
@@ -752,7 +774,9 @@ where
             (king_dst, king_src_col)
         };
         for col in path_lo..path_hi {
-            if info.king_danger_squares.get(row * W + col) {
+            let square_idx = row * W + col;
+            let occupied_at_square = occupied_no_king.andnot(Bitboard::single(square_idx));
+            if self.is_square_attacked_on(square_idx, opponent, occupied_at_square) {
                 return None;
             }
         }

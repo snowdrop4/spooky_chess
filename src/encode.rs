@@ -221,7 +221,7 @@ fn fill_chess_planes<const W: usize, const H: usize>(
     );
     let base_plane = t * PIECE_PLANES;
 
-    for (pos, piece) in game.board().pieces_iter(perspective) {
+    for (pos, piece) in game.pieces_iter(perspective) {
         let plane_idx = piece_type_plane_index(piece.piece_type);
         let offset = (base_plane + plane_idx) * board_size;
         let idx = pos.to_index(W);
@@ -234,7 +234,7 @@ fn fill_chess_planes<const W: usize, const H: usize>(
         data[offset + idx] = 1.0;
     }
 
-    for (pos, piece) in game.board().pieces_iter(perspective.opposite()) {
+    for (pos, piece) in game.pieces_iter(perspective.opposite()) {
         let plane_idx = piece_type_plane_index(piece.piece_type);
         let offset = (base_plane + 6 + plane_idx) * board_size;
         let idx = pos.to_index(W);

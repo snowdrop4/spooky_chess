@@ -3,7 +3,6 @@ use pyo3::prelude::*;
 #[macro_use]
 mod dispatch;
 
-mod py_board;
 mod py_game;
 mod py_move;
 mod py_outcome;
@@ -13,7 +12,6 @@ mod py_position;
 mod py_turn_state;
 mod py_uci;
 
-pub use py_board::PyBoard;
 pub use py_game::PyGame;
 pub use py_move::PyMove;
 pub use py_outcome::PyGameOutcome;

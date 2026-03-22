@@ -40,14 +40,14 @@ macro_rules! board_size_tests {
                 #[test]
                 fn game_creation() {
                     let mut game = G::new($start_fen, true).expect("game_creation: failed to create game from start FEN");
-                    assert_eq!(game.board().width(), $W);
-                    assert_eq!(game.board().height(), $H);
+                    assert_eq!(game.width(), $W);
+                    assert_eq!(game.height(), $H);
                     assert_eq!(
-                        game.board().get_piece(&game.white_king_pos).expect("game_creation: white king must exist at tracked position").piece_type,
+                        game.get_piece(&game.white_king_pos).expect("game_creation: white king must exist at tracked position").piece_type,
                         PieceType::King,
                     );
                     assert_eq!(
-                        game.board().get_piece(&game.black_king_pos).expect("game_creation: black king must exist at tracked position").piece_type,
+                        game.get_piece(&game.black_king_pos).expect("game_creation: black king must exist at tracked position").piece_type,
                         PieceType::King,
                     );
                     let fen = game.to_fen();
@@ -57,8 +57,8 @@ macro_rules! board_size_tests {
                 #[test]
                 fn piece_placement() {
                     let game = G::new($start_fen, true).expect("piece_placement: failed to create game from start FEN");
-                    let white_pieces = game.board().pieces(Color::White);
-                    let black_pieces = game.board().pieces(Color::Black);
+                    let white_pieces = game.pieces(Color::White);
+                    let black_pieces = game.pieces(Color::Black);
 
                     assert!(!white_pieces.is_empty());
                     assert!(!black_pieces.is_empty());
@@ -78,12 +78,12 @@ macro_rules! board_size_tests {
                 #[test]
                 fn rook_attack_patterns() {
                     let mut game = G::new($start_fen, false).expect("rook_attack_patterns: failed to create game from start FEN");
-                    game.board.clear();
-                    game.board.set_piece(
+                    game.clear_board();
+                    game.set_piece(
                         &Position::new(0, 0),
                         Some(Piece::new(PieceType::King, Color::White)),
                     );
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new($W - 1, $H - 1),
                         Some(Piece::new(PieceType::King, Color::Black)),
                     );
@@ -92,7 +92,7 @@ macro_rules! board_size_tests {
 
                     // Rook at (2, 2) — valid on any board >= 5x5
                     let rook_pos = Position::new(2, 2);
-                    game.board.set_piece(&rook_pos, Some(Piece::new(PieceType::Rook, Color::White)));
+                    game.set_piece(&rook_pos, Some(Piece::new(PieceType::Rook, Color::White)));
 
                     // Attacks along file and rank
                     assert!(game.is_square_attacked(&Position::new(2, 0), Color::White));
@@ -104,7 +104,7 @@ macro_rules! board_size_tests {
                     assert!(!game.is_square_attacked(&Position::new(3, 3), Color::White));
 
                     // Blocked path
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(2, 4),
                         Some(Piece::new(PieceType::Pawn, Color::Black)),
                     );
@@ -115,13 +115,13 @@ macro_rules! board_size_tests {
                 #[test]
                 fn bishop_attack_patterns() {
                     let mut game = G::new($start_fen, false).expect("bishop_attack_patterns: failed to create game from start FEN");
-                    game.board.clear();
+                    game.clear_board();
                     // Kings placed off the diagonals from (2,2)
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(0, 1),
                         Some(Piece::new(PieceType::King, Color::White)),
                     );
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new($W - 1, 1),
                         Some(Piece::new(PieceType::King, Color::Black)),
                     );
@@ -129,7 +129,7 @@ macro_rules! board_size_tests {
                     game.black_king_pos = Position::new($W - 1, 1);
 
                     // Bishop at (2, 2)
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(2, 2),
                         Some(Piece::new(PieceType::Bishop, Color::White)),
                     );
@@ -145,7 +145,7 @@ macro_rules! board_size_tests {
                     assert!(!game.is_square_attacked(&Position::new(4, 2), Color::White));
 
                     // Blocked path
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(3, 3),
                         Some(Piece::new(PieceType::Pawn, Color::Black)),
                     );
@@ -165,21 +165,21 @@ macro_rules! board_size_tests {
                     #[case] extra_piece: Option<(PieceType, Color, Position)>,
                 ) {
                     let mut game = G::new($start_fen, true).expect("insufficient_material: failed to create game from start FEN");
-                    game.board.clear();
+                    game.clear_board();
 
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(0, 0),
                         Some(Piece::new(PieceType::King, Color::White)),
                     );
                     game.white_king_pos = Position::new(0, 0);
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new($W - 1, $H - 1),
                         Some(Piece::new(PieceType::King, Color::Black)),
                     );
                     game.black_king_pos = Position::new($W - 1, $H - 1);
 
                     if let Some((pt, color, pos)) = extra_piece {
-                        game.board.set_piece(&pos, Some(Piece::new(pt, color)));
+                        game.set_piece(&pos, Some(Piece::new(pt, color)));
                     }
 
                     assert!(game.is_insufficient_material());
@@ -190,18 +190,18 @@ macro_rules! board_size_tests {
                 #[test]
                 fn fifty_move_rule() {
                     let mut game = G::new($start_fen, true).expect("fifty_move_rule: failed to create game from start FEN");
-                    game.board.clear();
+                    game.clear_board();
 
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(0, 0),
                         Some(Piece::new(PieceType::King, Color::White)),
                     );
                     game.white_king_pos = Position::new(0, 0);
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new(1, 0),
                         Some(Piece::new(PieceType::Rook, Color::White)),
                     );
-                    game.board.set_piece(
+                    game.set_piece(
                         &Position::new($W - 1, $H - 1),
                         Some(Piece::new(PieceType::King, Color::Black)),
                     );
@@ -241,14 +241,14 @@ macro_rules! board_size_tests {
                     assert!(game.make_move(&mv));
 
                     assert_eq!(
-                        game.board().get_piece(&Position::from_usize(king_dst_col, 0)).expect("castling: king must exist at destination after castling").piece_type,
+                        game.get_piece(&Position::from_usize(king_dst_col, 0)).expect("castling: king must exist at destination after castling").piece_type,
                         PieceType::King,
                     );
                     assert_eq!(
-                        game.board().get_piece(&Position::from_usize(rook_dst_col, 0)).expect("castling: rook must exist at destination after castling").piece_type,
+                        game.get_piece(&Position::from_usize(rook_dst_col, 0)).expect("castling: rook must exist at destination after castling").piece_type,
                         PieceType::Rook,
                     );
-                    assert!(game.board().get_piece(&Position::new($king_col, 0)).is_none());
+                    assert!(game.get_piece(&Position::new($king_col, 0)).is_none());
                 }
 
                 #[test]
@@ -315,11 +315,11 @@ macro_rules! board_size_tests {
                     game.make_move(&ep_mv);
 
                     assert_eq!(
-                        game.board().get_piece(&expected_dst).expect("en_passant: pawn must exist at en passant destination").piece_type,
+                        game.get_piece(&expected_dst).expect("en_passant: pawn must exist at en passant destination").piece_type,
                         PieceType::Pawn,
                     );
-                    assert!(game.board().get_piece(&captured_pos).is_none());
-                    assert!(game.board().get_piece(&expected_src).is_none());
+                    assert!(game.get_piece(&captured_pos).is_none());
+                    assert!(game.get_piece(&expected_src).is_none());
                 }
 
                 #[test]

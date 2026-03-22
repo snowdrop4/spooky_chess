@@ -162,6 +162,24 @@ fn turn_state_stalemate_returns_outcome() {
 }
 
 #[test]
+fn king_cannot_capture_a_blocker_that_reveals_a_slider_attack() {
+    let fen = "k3r3/8/8/8/8/8/4n3/4K3 w - - 0 1";
+    let mut game = Game8x8::new(fen, false).expect("Failed to parse king-capture regression FEN");
+
+    let illegal_capture = Move::from_lan("e1e2", 8, 8)
+        .expect("king_cannot_capture_a_blocker_that_reveals_a_slider_attack: failed to parse e1e2");
+
+    assert!(
+        !game.is_legal_move(&illegal_capture),
+        "Kxe2 must be illegal because removing the knight reveals the rook attack from e8"
+    );
+    assert!(
+        !game.legal_moves().contains(&illegal_capture),
+        "Illegal king capture must not appear in legal move generation"
+    );
+}
+
+#[test]
 fn halfmove_clock_reset_on_pawn_move() {
     let mut game = Game8x8::standard();
 
@@ -251,20 +269,20 @@ fn castling_rights_methods() {
 fn castling_rights_rook_move() {
     let mut game = Game8x8::standard();
 
-    game.board.clear();
-    game.board.set_piece(
+    game.clear_board();
+    game.set_piece(
         &Position::new(4, 0),
         Some(Piece::new(PieceType::King, Color::White)),
     );
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(4, 7),
         Some(Piece::new(PieceType::King, Color::Black)),
     );
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(0, 0),
         Some(Piece::new(PieceType::Rook, Color::White)),
     );
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(7, 0),
         Some(Piece::new(PieceType::Rook, Color::White)),
     );
@@ -285,21 +303,21 @@ fn insufficient_material(
     #[case] extra_piece: Option<(PieceType, Color, Position)>,
 ) {
     let mut game = Game8x8::standard();
-    game.board.clear();
+    game.clear_board();
 
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(4, 0),
         Some(Piece::new(PieceType::King, Color::White)),
     );
     game.white_king_pos = Position::new(4, 0);
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(4, 7),
         Some(Piece::new(PieceType::King, Color::Black)),
     );
     game.black_king_pos = Position::new(4, 7);
 
     if let Some((pt, color, pos)) = extra_piece {
-        game.board.set_piece(&pos, Some(Piece::new(pt, color)));
+        game.set_piece(&pos, Some(Piece::new(pt, color)));
     }
 
     assert!(game.is_insufficient_material());
@@ -310,18 +328,18 @@ fn insufficient_material(
 #[test]
 fn fifty_move_rule() {
     let mut game = Game8x8::standard();
-    game.board.clear();
+    game.clear_board();
 
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(4, 0),
         Some(Piece::new(PieceType::King, Color::White)),
     );
     game.white_king_pos = Position::new(4, 0);
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(0, 0),
         Some(Piece::new(PieceType::Rook, Color::White)),
     );
-    game.board.set_piece(
+    game.set_piece(
         &Position::new(4, 7),
         Some(Piece::new(PieceType::King, Color::Black)),
     );
@@ -337,7 +355,7 @@ fn fifty_move_rule() {
 fn total_actions_standard() {
     let game = Game8x8::standard();
     assert_eq!(
-        crate::encode::get_total_actions(game.board().width(), game.board().height()),
+        crate::encode::get_total_actions(game.width(), game.height()),
         5248
     );
 }

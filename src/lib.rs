@@ -2,7 +2,7 @@
 #![allow(incomplete_features)]
 
 pub mod bitboard;
-pub mod board;
+pub(crate) mod board;
 pub mod color;
 pub mod directions;
 pub mod encode;
@@ -29,7 +29,6 @@ use pyo3::prelude::*;
 fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use color::Color;
     use python::*;
-    m.add_class::<PyBoard>()?;
     m.add_class::<PyGame>()?;
     m.add_class::<PyMove>()?;
     m.add_class::<PyPiece>()?;

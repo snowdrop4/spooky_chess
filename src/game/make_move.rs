@@ -64,6 +64,7 @@ where
         let old_castling = self.castling_rights;
         let old_en_passant = self.en_passant;
         let old_halfmove = self.halfmove_clock;
+        let old_piece_counts = self.piece_counts;
 
         // Handle castling rook first: move rook before placing king so pieces
         // don't overlap on the same square (which would corrupt bitboards on
@@ -91,6 +92,7 @@ where
         self.board.remove_piece(&mv.src, piece);
         if let Some(ref cap) = captured {
             self.board.remove_piece(&mv.dst, cap);
+            self.piece_counts.decrement(cap.piece_type, cap.color);
         }
 
         // Handle promotion
@@ -99,10 +101,10 @@ where
                 mv.promotion.is_some(),
                 "PROMOTION flag set but no promotion piece type specified",
             );
-            Piece::new(
-                mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION),
-                piece.color,
-            )
+            let promoted_type = mv.promotion.unwrap_or(PieceType::DEFAULT_PROMOTION);
+            self.piece_counts.decrement(PieceType::Pawn, piece.color);
+            self.piece_counts.increment(promoted_type, piece.color);
+            Piece::new(promoted_type, piece.color)
         } else {
             *piece
         };
@@ -136,6 +138,8 @@ where
                 self.board.get_piece(&captured_pawn_pos),
             );
             self.board.remove_piece(&captured_pawn_pos, &ep_piece);
+            self.piece_counts
+                .decrement(PieceType::Pawn, piece.color.opposite());
         }
 
         // Update castling rights
@@ -175,6 +179,7 @@ where
             castling_rights: old_castling,
             en_passant: old_en_passant,
             halfmove_clock: old_halfmove,
+            piece_counts: old_piece_counts,
         });
 
         // Verify king position cache consistency
@@ -269,6 +274,7 @@ where
             self.castling_rights = old_castling;
             self.en_passant = old_en_passant;
             self.halfmove_clock = old_halfmove;
+            self.piece_counts = entry.piece_counts;
 
             if self.turn == Color::Black {
                 debug_assert!(

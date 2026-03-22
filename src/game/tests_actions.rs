@@ -73,6 +73,6 @@ fn apply_action_roundtrip() {
     assert_eq!(game.turn(), Color::Black);
 
     // Verify the pawn moved
-    assert!(game.board().get_piece(&Position::new(4, 1)).is_none());
-    assert!(game.board().get_piece(&Position::new(4, 3)).is_some());
+    assert!(game.get_piece(&Position::new(4, 1)).is_none());
+    assert!(game.get_piece(&Position::new(4, 3)).is_some());
 }

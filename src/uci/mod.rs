@@ -322,11 +322,11 @@ impl UciEngine {
     }
 
     pub fn width(&self) -> usize {
-        self.game.board().width()
+        self.game.width()
     }
 
     pub fn height(&self) -> usize {
-        self.game.board().height()
+        self.game.height()
     }
 
     pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
