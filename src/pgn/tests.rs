@@ -1,14 +1,24 @@
 use super::*;
 
-macro_rules! pgn {
+macro_rules! tournament_pgn {
     ($file:literal) => {
         include_str!(concat!("../../pgn/example/", $file))
     };
 }
 
+macro_rules! annotated_pgn {
+    ($file:literal) => {
+        include_str!(concat!("../../pgn/annotated_games/", $file))
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Tournament Games
+// ---------------------------------------------------------------------------
+
 #[test]
 fn test_parse_games_pgn() {
-    let pgn = pgn!("games.pgn");
+    let pgn = tournament_pgn!("games.pgn");
     let games = parse_pgn(pgn).expect("test_parse_games_pgn: failed to parse PGN file");
     assert_eq!(games.len(), 56);
     for game in &games {
@@ -19,7 +29,7 @@ fn test_parse_games_pgn() {
 
 #[test]
 fn test_scholars_mate() {
-    let pgn = pgn!("scholars_mate.pgn");
+    let pgn = tournament_pgn!("scholars_mate.pgn");
     let mut game =
         parse_pgn_single_game(pgn).expect("test_scholars_mate: failed to parse scholars mate PGN");
     assert_eq!(game.headers.white(), Some("Player1"));
@@ -32,7 +42,7 @@ fn test_scholars_mate() {
 
 #[test]
 fn test_multi_game() {
-    let pgn = pgn!("multi_game.pgn");
+    let pgn = tournament_pgn!("multi_game.pgn");
     let mut games = parse_pgn(pgn).expect("test_multi_game: failed to parse multi-game PGN");
     assert_eq!(games.len(), 2);
 
@@ -48,7 +58,7 @@ fn test_multi_game() {
 
 #[test]
 fn test_fen_start_position() {
-    let pgn = pgn!("fen_start.pgn");
+    let pgn = tournament_pgn!("fen_start.pgn");
     let game =
         parse_pgn_single_game(pgn).expect("test_fen_start_position: failed to parse FEN start PGN");
     assert_eq!(game.moves.len(), 1);
@@ -67,7 +77,7 @@ fn test_fen_start_position() {
 
 #[test]
 fn test_castling_uppercase_o() {
-    let pgn = pgn!("castling_uppercase.pgn");
+    let pgn = tournament_pgn!("castling_uppercase.pgn");
     let game = parse_pgn_single_game(pgn)
         .expect("test_castling_uppercase_o: failed to parse castling uppercase PGN");
     assert_eq!(game.moves.len(), 8);
@@ -75,7 +85,7 @@ fn test_castling_uppercase_o() {
 
 #[test]
 fn test_castling_zero() {
-    let pgn = pgn!("castling_zero.pgn");
+    let pgn = tournament_pgn!("castling_zero.pgn");
     let game =
         parse_pgn_single_game(pgn).expect("test_castling_zero: failed to parse castling zero PGN");
     assert_eq!(game.moves.len(), 8);
@@ -83,7 +93,7 @@ fn test_castling_zero() {
 
 #[test]
 fn test_promotion_with_equals() {
-    let pgn = pgn!("promotion_equals.pgn");
+    let pgn = tournament_pgn!("promotion_equals.pgn");
     let game = parse_pgn_single_game(pgn)
         .expect("test_promotion_with_equals: failed to parse promotion equals PGN");
     assert_eq!(game.moves.len(), 1);
@@ -91,7 +101,7 @@ fn test_promotion_with_equals() {
 
 #[test]
 fn test_promotion_without_equals() {
-    let pgn = pgn!("promotion_no_equals.pgn");
+    let pgn = tournament_pgn!("promotion_no_equals.pgn");
     let game = parse_pgn_single_game(pgn)
         .expect("test_promotion_without_equals: failed to parse promotion no-equals PGN");
     assert_eq!(game.moves.len(), 1);
@@ -99,7 +109,7 @@ fn test_promotion_without_equals() {
 
 #[test]
 fn test_comments_and_annotations_skipped() {
-    let pgn = pgn!("annotated.pgn");
+    let pgn = tournament_pgn!("annotated.pgn");
     let mut game = parse_pgn_single_game(pgn)
         .expect("test_comments_and_annotations_skipped: failed to parse annotated PGN");
     assert_eq!(game.moves.len(), 7);
@@ -108,7 +118,7 @@ fn test_comments_and_annotations_skipped() {
 
 #[test]
 fn test_invalid_move() {
-    let pgn = pgn!("invalid_move.pgn");
+    let pgn = tournament_pgn!("invalid_move.pgn");
     match parse_pgn_single_game(pgn) {
         Err(PgnError::InvalidMove { san, .. }) => {
             assert_eq!(san, "Qh8");
@@ -120,7 +130,7 @@ fn test_invalid_move() {
 
 #[test]
 fn test_draw_result() {
-    let pgn = pgn!("draw.pgn");
+    let pgn = tournament_pgn!("draw.pgn");
     let game = parse_pgn_single_game(pgn).expect("test_draw_result: failed to parse draw PGN");
     assert_eq!(game.result, PgnResult::Draw);
 }
@@ -142,7 +152,7 @@ fn test_headers_case_insensitive() {
 
 #[test]
 fn test_standard_start_helpers() {
-    let pgn = pgn!("scholars_mate.pgn");
+    let pgn = tournament_pgn!("scholars_mate.pgn");
     let game =
         parse_pgn_single_game(pgn).expect("test_standard_start_helpers: failed to parse PGN");
     assert_eq!(game.starting_fen(), None);
@@ -153,3 +163,93 @@ fn test_standard_start_helpers() {
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Annotated Games
+// ---------------------------------------------------------------------------
+
+/// Helper: parse a PGN file via the iterator, count how many games parse
+/// successfully and how many fail, and return (ok, err, total_moves).
+fn parse_annotated_file(pgn: &str) -> (usize, usize, usize) {
+    let iter = PgnIter::new(pgn.to_string()).expect("failed to create PGN iterator");
+    let mut ok = 0;
+    let mut err = 0;
+    let mut total_moves = 0;
+    for result in iter {
+        match result {
+            Ok(game) => {
+                ok += 1;
+                total_moves += game.moves.len();
+            }
+            Err(_) => {
+                err += 1;
+            }
+        }
+    }
+    (ok, err, total_moves)
+}
+
+macro_rules! annotated_game_test {
+    ($name:ident, $file:literal, xfail) => {
+        #[test]
+        #[should_panic(expected = "failed to parse")]
+        fn $name() {
+            let pgn = annotated_pgn!($file);
+            let (ok, err, total_moves) = parse_annotated_file(pgn);
+            assert_eq!(
+                err, 0,
+                "{}: {} games failed to parse ({} succeeded)",
+                $file, err, ok
+            );
+            assert!(
+                total_moves > 0,
+                "{}: expected at least some moves across all games",
+                $file
+            );
+        }
+    };
+    ($name:ident, $file:literal) => {
+        #[test]
+        fn $name() {
+            let pgn = annotated_pgn!($file);
+            let (ok, err, total_moves) = parse_annotated_file(pgn);
+            assert_eq!(
+                err, 0,
+                "{}: {} games failed to parse ({} succeeded)",
+                $file, err, ok
+            );
+            assert!(
+                total_moves > 0,
+                "{}: expected at least some moves across all games",
+                $file
+            );
+        }
+    };
+}
+
+annotated_game_test!(test_annotated_gm_games, "GM_games.pgn", xfail);
+annotated_game_test!(test_annotated_setone, "annotatedsetone.pgn");
+annotated_game_test!(test_annotated_settwo, "annotatedsettwo.pgn");
+annotated_game_test!(test_annotated_bali02, "bali02.pgn");
+annotated_game_test!(
+    test_annotated_electronic_campfire,
+    "electronic_campfire.pgn"
+);
+annotated_game_test!(test_annotated_great_masters, "great_masters.pgn");
+annotated_game_test!(test_annotated_hartwig, "hartwig.pgn");
+annotated_game_test!(test_annotated_hayes, "hayes.pgn");
+annotated_game_test!(test_annotated_immortal_games, "immortal_games.pgn", xfail);
+annotated_game_test!(test_annotated_kk, "kk.pgn");
+annotated_game_test!(test_annotated_kramnik, "kramnik.pgn");
+annotated_game_test!(test_annotated_linares_2001, "linares_2001.pgn");
+annotated_game_test!(test_annotated_linares_2002, "linares_2002.pgn");
+annotated_game_test!(test_annotated_moscow64, "moscow64.pgn");
+annotated_game_test!(test_annotated_perle, "perle.pgn");
+annotated_game_test!(test_annotated_polgar, "polgar.pgn");
+annotated_game_test!(test_annotated_pon_korch, "pon_korch.pgn");
+annotated_game_test!(test_annotated_russian_chess, "russian_chess.pgn");
+annotated_game_test!(test_annotated_scca, "scca.pgn");
+annotated_game_test!(test_annotated_schiller, "schiller.pgn");
+annotated_game_test!(test_annotated_semicomm, "semicomm.pgn");
+annotated_game_test!(test_annotated_top_games, "top_games.pgn");
+annotated_game_test!(test_annotated_vc_2001, "vc_2001.pgn");
