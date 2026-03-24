@@ -48,6 +48,10 @@ impl PyGame {
         dispatch_game!(&self.inner, g => g.halfmove_clock())
     }
 
+    pub fn ply(&self) -> usize {
+        dispatch_game!(&self.inner, g => g.move_count())
+    }
+
     pub fn castling_enabled(&self) -> bool {
         dispatch_game!(&self.inner, g => g.castling_enabled())
     }
