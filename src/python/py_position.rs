@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3::types::PyType;
 
 use crate::position::Position;
 
@@ -16,6 +17,17 @@ impl PyPosition {
         PyPosition {
             pos: Position::new(col, row),
         }
+    }
+
+    #[classmethod]
+    pub fn from_algebraic(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
+        Position::from_algebraic(s)
+            .map(|pos| PyPosition { pos })
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
+    }
+
+    pub fn to_algebraic(&self) -> String {
+        self.pos.to_algebraic()
     }
 
     pub fn col(&self) -> u8 {
