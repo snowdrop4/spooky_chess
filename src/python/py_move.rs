@@ -5,6 +5,8 @@ use crate::encode;
 use crate::r#move::{Move, MoveFlags};
 use crate::position::Position;
 
+use super::py_position::PyPosition;
+
 #[pyclass(name = "Move")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyMove {
@@ -36,6 +38,16 @@ impl PyMove {
             Ok(move_) => Ok(PyMove { move_ }),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
         }
+    }
+
+    #[getter]
+    pub fn src(&self) -> PyPosition {
+        PyPosition { pos: self.move_.src }
+    }
+
+    #[getter]
+    pub fn dst(&self) -> PyPosition {
+        PyPosition { pos: self.move_.dst }
     }
 
     pub fn src_square(&self) -> (u8, u8) {
