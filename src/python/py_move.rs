@@ -42,12 +42,16 @@ impl PyMove {
 
     #[getter]
     pub fn src(&self) -> PyPosition {
-        PyPosition { pos: self.move_.src }
+        PyPosition {
+            pos: self.move_.src,
+        }
     }
 
     #[getter]
     pub fn dst(&self) -> PyPosition {
-        PyPosition { pos: self.move_.dst }
+        PyPosition {
+            pos: self.move_.dst,
+        }
     }
 
     pub fn src_square(&self) -> (u8, u8) {

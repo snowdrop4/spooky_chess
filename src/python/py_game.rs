@@ -207,13 +207,9 @@ impl PyGame {
             .chars()
             .next()
             .and_then(PieceType::from_char)
-            .ok_or_else(|| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid piece type")
-            })?;
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid piece type"))?;
         let c = Color::from_int(color).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "color must be 1 (white) or -1 (black)",
-            )
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
         })?;
         Ok(dispatch_game!(&self.inner, g => g.piece_counts().get(pt, c)))
     }
@@ -221,9 +217,8 @@ impl PyGame {
     pub fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyPiece>> {
         // Accept either a string like "e4" or a tuple like (col, row)
         if let Ok(s) = key.extract::<String>() {
-            let pos = Position::from_algebraic(&s).map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyKeyError, _>(e)
-            })?;
+            let pos = Position::from_algebraic(&s)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(e))?;
             Ok(dispatch_game!(&self.inner, g => g.get_piece(&pos).map(|p| PyPiece { piece: p })))
         } else if let Ok((col, row)) = key.extract::<(u8, u8)>() {
             let pos = Position::new(col, row);
