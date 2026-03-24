@@ -17,7 +17,7 @@ bitflags = "2.11"
 arrayvec = "0.7"
 smallvec = "1.15"
 paste = "1.0"
-hotpath = "0.13"
+hotpath = "0.14"
 tree-sitter = "0.25"
 tree-sitter-pgn = "1.4.3"
 
