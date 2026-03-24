@@ -411,4 +411,20 @@ impl PyUciEngine {
     fn __eq__(&self, other: &PyUciEngine) -> bool {
         std::ptr::eq(self, other)
     }
+
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<&Bound<'_, PyAny>>,
+        _exc_value: Option<&Bound<'_, PyAny>>,
+        _traceback: Option<&Bound<'_, PyAny>>,
+    ) -> bool {
+        if let Some(mut engine) = self.engine.take() {
+            let _ = engine.quit();
+        }
+        false
+    }
 }
