@@ -171,6 +171,18 @@ impl PyGame {
         dispatch_game!(&self.inner, g => g.get_piece(&pos).map(|p| PyPiece { piece: p }))
     }
 
+    pub fn pieces(&self, color: i8) -> PyResult<Vec<(PyPosition, PyPiece)>> {
+        let color = Color::from_int(color).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("color must be 1 (white) or -1 (black)")
+        })?;
+        Ok(dispatch_game!(&self.inner, g => {
+            g.pieces(color)
+                .into_iter()
+                .map(|(pos, piece)| (PyPosition { pos }, PyPiece { piece }))
+                .collect()
+        }))
+    }
+
     pub fn set_piece(&mut self, col: u8, row: u8, piece: Option<PyPiece>) {
         let pos = Position::new(col, row);
         dispatch_game!(&mut self.inner, g => g.set_piece(&pos, piece.map(|p| p.piece)))
