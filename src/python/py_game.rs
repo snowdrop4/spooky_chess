@@ -80,6 +80,15 @@ impl PyGame {
         dispatch_game!(&mut self.inner, g => g.make_move_unchecked(&move_.move_))
     }
 
+    pub fn move_history(&self) -> Vec<PyMove> {
+        dispatch_game!(&self.inner, g => {
+            g.move_history()
+                .iter()
+                .map(|entry| PyMove { move_: entry.mv })
+                .collect()
+        })
+    }
+
     pub fn unmake_move(&mut self) -> bool {
         dispatch_game!(&mut self.inner, g => g.unmake_move())
     }
