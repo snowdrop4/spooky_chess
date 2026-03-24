@@ -31,7 +31,7 @@ hotpath-mcp = ["hotpath/hotpath-mcp"]
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
-rstest = "0.25"
+rstest = "0.26"
 rand = "0.10.0"
 
 [dependencies.rand]
