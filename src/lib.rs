@@ -7,6 +7,7 @@ pub mod color;
 pub mod directions;
 pub mod encode;
 pub mod game;
+pub(crate) mod limits;
 pub mod r#move;
 pub mod outcome;
 pub mod pgn;

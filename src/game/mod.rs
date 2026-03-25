@@ -4,6 +4,7 @@ use smallvec::SmallVec;
 use crate::bitboard::BoardGeometry;
 use crate::board::Board;
 use crate::color::Color;
+use crate::limits::validate_board_dimensions;
 use crate::r#move::Move;
 use crate::pieces::{Piece, PieceType};
 use crate::position::Position;
@@ -222,6 +223,8 @@ where
     }
 
     pub fn new(fen: &str, castling_enabled: bool) -> Result<Self, String> {
+        validate_board_dimensions(W, H)?;
+
         let parts: ArrayVec<&str, 6> = fen.split(' ').collect();
 
         if parts.is_empty() {

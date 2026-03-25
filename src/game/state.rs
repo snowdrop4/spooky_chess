@@ -291,61 +291,78 @@ where
                 .ok_or_else(|| "Queenside castling not available".to_string());
         }
 
-        let chars: Vec<char> = san.chars().collect();
+        let bytes = san.as_bytes();
         let mut idx = 0;
 
         // Piece type
-        let piece_type = if idx < chars.len() && chars[idx].is_ascii_uppercase() {
-            if let Some(pt) = PieceType::from_san_char(chars[idx]) {
+        let piece_type = if idx < bytes.len() && (bytes[idx] as char).is_ascii_uppercase() {
+            if let Some(pt) = PieceType::from_san_char(bytes[idx] as char) {
                 idx += 1;
                 pt
             } else {
-                return Err(format!("Invalid piece character: {}", chars[idx]));
+                return Err(format!("Invalid piece character: {}", bytes[idx] as char));
             }
         } else {
             PieceType::Pawn
         };
 
-        // Parse the remaining: optional disambiguation, optional 'x', destination, optional '=P'
-        // We need to find the destination square, which is the last 2 chars before optional promotion
         let mut promo_type: Option<PieceType> = None;
-        let mut end = chars.len();
+        let mut end = bytes.len();
 
         // Check for promotion suffix: =Q, =R, =B, =N
-        if end >= 2 && chars[end - 2] == '=' {
-            promo_type = PieceType::from_san_char(chars[end - 1]);
+        if end >= 2 && bytes[end - 2] == b'=' {
+            promo_type = PieceType::from_san_char(bytes[end - 1] as char);
             if promo_type.is_none() {
-                return Err(format!("Invalid promotion piece: {}", chars[end - 1]));
+                return Err(format!(
+                    "Invalid promotion piece: {}",
+                    bytes[end - 1] as char
+                ));
             }
             end -= 2;
         }
 
-        // Last 2 chars before promotion are the destination square
-        if end < idx + 2 {
+        // Destination square is the trailing file plus one-or-more-digit rank.
+        let mut rank_start = end;
+        while rank_start > idx && bytes[rank_start - 1].is_ascii_digit() {
+            rank_start -= 1;
+        }
+        if rank_start == end || rank_start == 0 || rank_start <= idx {
             return Err("SAN too short to contain destination square".to_string());
         }
-        let dst_file = chars[end - 2];
-        let dst_rank = chars[end - 1];
-        if !dst_file.is_ascii_lowercase() || !dst_rank.is_ascii_digit() {
+        let file_idx = rank_start - 1;
+        let dst_file = bytes[file_idx] as char;
+        if !dst_file.is_ascii_lowercase() {
             return Err(format!(
-                "Invalid destination square: {}{}",
-                dst_file, dst_rank
+                "Invalid destination square: {}",
+                &san[file_idx..end]
             ));
         }
-        let dst = Position::from_algebraic(&format!("{}{}", dst_file, dst_rank))?;
-        let disambig = &chars[idx..end - 2];
+        let dst = Position::from_algebraic(&san[file_idx..end])?;
+        let disambig = san[idx..file_idx].replace('x', "");
 
-        // Parse disambiguation (skip 'x' if present)
         let mut file_hint: Option<usize> = None;
         let mut rank_hint: Option<usize> = None;
-        for &c in disambig {
-            if c == 'x' {
-                continue;
-            }
-            if c.is_ascii_lowercase() {
+
+        if !disambig.is_empty() {
+            let mut rest = disambig.as_str();
+            if let Some(c) = rest.chars().next()
+                && c.is_ascii_lowercase()
+            {
                 file_hint = Some((c as u8 - b'a') as usize);
-            } else if c.is_ascii_digit() {
-                rank_hint = Some((c as u8 - b'1') as usize);
+                rest = &rest[c.len_utf8()..];
+            }
+
+            if !rest.is_empty() {
+                if !rest.chars().all(|c| c.is_ascii_digit()) {
+                    return Err(format!("Invalid SAN disambiguation: {}", san));
+                }
+                let rank_num = rest
+                    .parse::<usize>()
+                    .map_err(|_| format!("Invalid SAN disambiguation: {}", san))?;
+                if rank_num == 0 {
+                    return Err(format!("Invalid SAN disambiguation: {}", san));
+                }
+                rank_hint = Some(rank_num - 1);
             }
         }
 

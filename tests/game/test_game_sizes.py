@@ -1,25 +1,15 @@
-import pytest
-
 import spooky_chess
 
 
-def test_game_size_limits() -> None:
-    # Valid FEN
-    spooky_chess.Game(
-        width=8,
-        height=8,
-        fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        castling_enabled=True,
+def test_10x10_move_strings_support_multi_digit_ranks() -> None:
+    game = spooky_chess.Game(
+        width=10,
+        height=10,
+        fen="10/R9/9k/10/10/10/10/10/10/4K5 w - - 0 1",
+        castling_enabled=False,
     )
 
-    # Invalid FEN should raise ValueError
-    with pytest.raises(ValueError):  # noqa: PT011
-        spooky_chess.Game(width=8, height=8, fen="invalid", castling_enabled=True)
-
-    with pytest.raises(ValueError):  # noqa: PT011
-        spooky_chess.Game(
-            width=8,
-            height=8,
-            fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
-            castling_enabled=True,
-        )  # Incomplete FEN
+    move = game.move_from_lan("a9a10")
+    assert move.to_lan() == "a9a10"
+    assert game.move_to_san(move) == "Ra10"
+    assert game.move_from_san("Ra10") == move

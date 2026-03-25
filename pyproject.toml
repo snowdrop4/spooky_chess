@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spooky_chess"
 version = "0.9.0"
-description = "High-performance chess library with arbitrary board sizes"
+description = "High-performance chess library with board sizes from 6x6 to 16x16"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = []

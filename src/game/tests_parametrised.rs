@@ -90,7 +90,7 @@ macro_rules! board_size_tests {
                     game.white_king_pos = Position::new(0, 0);
                     game.black_king_pos = Position::new($W - 1, $H - 1);
 
-                    // Rook at (2, 2) — valid on any board >= 5x5
+                    // Rook at (2, 2) — valid on any board >= 6x6
                     let rook_pos = Position::new(2, 2);
                     game.set_piece(&rook_pos, Some(Piece::new(PieceType::Rook, Color::White)));
 

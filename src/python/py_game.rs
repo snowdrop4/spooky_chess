@@ -6,6 +6,7 @@ use super::py_outcome::PyGameOutcome;
 use super::py_piece::PyPiece;
 use super::py_position::PyPosition;
 use super::py_turn_state::PyTurnState;
+use super::validate_dimensions;
 use crate::color::Color;
 use crate::encode;
 use crate::pieces::PieceType;
@@ -21,6 +22,7 @@ pub struct PyGame {
 impl PyGame {
     #[new]
     pub fn new(width: usize, height: usize, fen: &str, castling_enabled: bool) -> PyResult<Self> {
+        validate_dimensions(width, height)?;
         let inner = make_game_inner(width, height, fen, castling_enabled)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
         Ok(PyGame { inner })

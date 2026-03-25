@@ -6,6 +6,7 @@ use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
 
 type Game8x8 = Game<8, 8>;
+type Game10x10 = Game<10, 10>;
 
 #[test]
 fn san_basic_pawn_moves() {
@@ -130,6 +131,36 @@ fn san_disambiguation_rank() {
         .move_from_lan("a4a2")
         .expect("san_disambiguation_rank: failed to parse a4a2");
     assert_eq!(game.move_to_san(&mv2), "R4a2");
+}
+
+#[test]
+fn san_multi_digit_destination_rank() {
+    let fen = "10/R9/9k/10/10/10/10/10/10/4K5 w - - 0 1";
+    let mut game = Game10x10::new(fen, false)
+        .expect("san_multi_digit_destination_rank: failed to create game from FEN");
+    let mv = game
+        .move_from_lan("a9a10")
+        .expect("san_multi_digit_destination_rank: failed to parse a9a10");
+    assert_eq!(game.move_to_san(&mv), "Ra10");
+    let reparsed = game
+        .move_from_san("Ra10")
+        .expect("san_multi_digit_destination_rank: failed to parse SAN Ra10");
+    assert_eq!(reparsed, mv);
+}
+
+#[test]
+fn san_multi_digit_rank_disambiguation() {
+    let fen = "R9/9k/10/10/10/10/10/10/10/R3K5 w - - 0 1";
+    let mut game = Game10x10::new(fen, false)
+        .expect("san_multi_digit_rank_disambiguation: failed to create game from FEN");
+    let mv = game
+        .move_from_lan("a10a5")
+        .expect("san_multi_digit_rank_disambiguation: failed to parse a10a5");
+    assert_eq!(game.move_to_san(&mv), "R10a5");
+    let reparsed = game
+        .move_from_san("R10a5")
+        .expect("san_multi_digit_rank_disambiguation: failed to parse SAN R10a5");
+    assert_eq!(reparsed, mv);
 }
 
 #[test]

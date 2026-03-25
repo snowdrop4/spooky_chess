@@ -1,5 +1,7 @@
 use pyo3::prelude::*;
 
+use crate::limits;
+
 #[macro_use]
 mod dispatch;
 
@@ -22,15 +24,6 @@ pub use py_turn_state::PyTurnState;
 pub use py_uci::{PySearchResult, PyUciEngine};
 
 pub(crate) fn validate_dimensions(width: usize, height: usize) -> PyResult<()> {
-    if width < 5 || width > 16 {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "Board width must be between 5 and 16",
-        ));
-    }
-    if height < 5 || height > 16 {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "Board height must be between 5 and 16",
-        ));
-    }
-    Ok(())
+    limits::validate_board_dimensions(width, height)
+        .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
 }

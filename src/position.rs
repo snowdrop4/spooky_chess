@@ -59,10 +59,13 @@ impl Position {
             return Err("Invalid file character".to_string());
         };
 
-        let row = row_str
-            .parse::<u8>()
-            .map_err(|_| "Invalid row number".to_string())?
-            .saturating_sub(1);
+        let row_num = row_str
+            .parse::<u16>()
+            .map_err(|_| "Invalid row number".to_string())?;
+        if row_num == 0 {
+            return Err("Invalid row number".to_string());
+        }
+        let row = u8::try_from(row_num - 1).map_err(|_| "Invalid row number".to_string())?;
 
         Ok(Position { col, row })
     }
